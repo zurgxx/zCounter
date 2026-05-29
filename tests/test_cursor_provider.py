@@ -37,13 +37,13 @@ class CursorProviderTests(unittest.TestCase):
         self.assertEqual(snapshot.primary_label, "Total")
         self.assertEqual(snapshot.secondary_label, "Auto")
         self.assertIsNotNone(snapshot.primary)
-        self.assertAlmostEqual(snapshot.primary.used_percent, 44.1025641025641)
+        self.assertAlmostEqual(snapshot.primary.used_percent, 0.441025641025641)
         self.assertIsNotNone(snapshot.secondary)
-        self.assertEqual(snapshot.secondary.used_percent, 36.0)
-        self.assertAlmostEqual(snapshot.primary.remaining_percent, 55.8974358974359)
-        self.assertAlmostEqual(snapshot.details["api_used_percent"], 71.11111111111111)
+        self.assertAlmostEqual(snapshot.secondary.used_percent, 0.36)
+        self.assertAlmostEqual(snapshot.primary.remaining_percent, 99.55897435897436)
+        self.assertAlmostEqual(snapshot.details["api_used_percent"], 0.7111111111111111)
 
-    def test_cursor_fractional_percent_fields_are_scaled_to_display_percent(self) -> None:
+    def test_cursor_fractional_percent_fields_are_kept_as_display_percent(self) -> None:
         snapshot = normalize_cursor_snapshot(
             {
                 "individualUsage": {
@@ -57,7 +57,7 @@ class CursorProviderTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(snapshot.primary)
-        self.assertEqual(snapshot.primary.used_percent, 50.0)
+        self.assertEqual(snapshot.primary.used_percent, 0.5)
         self.assertIsNotNone(snapshot.secondary)
         self.assertEqual(snapshot.secondary.used_percent, 12.5)
 
@@ -113,25 +113,57 @@ class CursorProviderTests(unittest.TestCase):
         self.assertIsNotNone(snapshot.primary)
         self.assertEqual(snapshot.primary.used_percent, 4.3)
 
-    def test_cli_row_does_not_round_fractional_api_percent_to_zero(self) -> None:
+    def test_cursor_real_api_payload_percent_and_cli_display(self) -> None:
+        snapshot = normalize_cursor_snapshot(
+            {
+                "billingCycleEnd": "2026-04-18T20:45:42.000Z",
+                "membershipType": "pro",
+                "individualUsage": {
+                    "plan": {
+                        "used": 115,
+                        "limit": 2000,
+                        "totalPercentUsed": 0.5897435897435898,
+                        "autoPercentUsed": 0.7666666666666666,
+                        "apiPercentUsed": 0,
+                    }
+                },
+            },
+            None,
+        )
+
+        self.assertEqual(snapshot.plan, "Cursor Pro")
+        self.assertEqual(snapshot.primary_label, "Total")
+        self.assertIsNotNone(snapshot.primary)
+        self.assertAlmostEqual(snapshot.primary.used_percent, 0.5897, places=4)
+        self.assertEqual(snapshot.secondary_label, "Auto")
+        self.assertIsNotNone(snapshot.secondary)
+        self.assertAlmostEqual(snapshot.secondary.used_percent, 0.7666666666666666)
+        self.assertEqual(snapshot.details.get("api_used_percent"), 0.0)
+
+        row = _row(snapshot)
+        self.assertEqual(row[3], "Total 99%")
+        self.assertEqual(row[4], "1%")
+        self.assertEqual(row[5], "Auto 99%")
+        self.assertEqual(row[6], "1%")
+
+    def test_cursor_percent_fields_take_priority_over_used_limit_ratio(self) -> None:
         snapshot = normalize_cursor_snapshot(
             {
                 "individualUsage": {
                     "plan": {
-                        "totalPercentUsed": 0.44,
-                        "autoPercentUsed": 0.08,
+                        "used": 115,
+                        "limit": 2000,
+                        "totalPercentUsed": 0.5897435897435898,
+                        "autoPercentUsed": 0.7666666666666666,
                     }
                 },
             },
-            {"email": "user@example.com"},
+            None,
         )
 
-        row = _row(snapshot)
-
-        self.assertEqual(row[3], "Total 56%")
-        self.assertEqual(row[4], "44%")
-        self.assertEqual(row[5], "Auto 92%")
-        self.assertEqual(row[6], "8%")
+        self.assertIsNotNone(snapshot.primary)
+        self.assertAlmostEqual(snapshot.primary.used_percent, 0.5897435897435898)
+        self.assertNotAlmostEqual(snapshot.primary.used_percent, 5.75)
 
     def test_cursor_primary_uses_auto_api_when_total_missing(self) -> None:
         snapshot = normalize_cursor_snapshot(

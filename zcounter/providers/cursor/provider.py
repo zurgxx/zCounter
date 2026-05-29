@@ -170,9 +170,9 @@ def _display_percent(value: Any) -> float | None:
     percent = float(value)
     if percent <= 0:
         return 0.0
-    if percent <= 1:
-        percent *= 100.0
-    return max(0.0, min(100.0, percent))
+    if percent > 100:
+        return 100.0
+    return percent
 
 
 def _ratio_percent(used: Any, limit: Any) -> float | None:
