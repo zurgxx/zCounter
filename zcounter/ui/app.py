@@ -7,20 +7,21 @@ from tkinter import font as tkfont
 from zcounter.models import QuotaSnapshot, isoformat_or_none, utc_now
 from zcounter.providers.codex.provider import fetch_codex_quotas
 from zcounter.ui.display import (
+    EMAIL_WIDTH,
     STATUS_ERROR,
     STATUS_OK,
     STATUS_STALE,
     account_key,
     format_email,
     format_percent,
-    format_reset_hint,
+    format_reset_time,
     format_status_suffix,
     merge_with_cache,
     remaining_level,
 )
 
 REFRESH_MS = 60_000
-WINDOW_WIDTH = 520
+WINDOW_WIDTH = 500
 ROW_HEIGHT = 18
 HEADER_HEIGHT = 28
 FOOTER_HEIGHT = 20
@@ -158,51 +159,60 @@ class QuotaUI:
 
         email_label = tk.Label(
             row,
-            text=format_email(snapshot.email),
+            text=format_email(snapshot.email, width=EMAIL_WIDTH),
             font=self._mono,
             fg="#1a1a1a",
             anchor="w",
-            width=30,
+            width=EMAIL_WIDTH,
         )
         email_label.pack(side="left")
 
         five_label = tk.Label(
             row,
-            text=f"5H {format_percent(snapshot.five_hour):>4}",
+            text=f"5H {format_percent(snapshot.five_hour):>3} ",
             font=self._mono,
             fg=LEVEL_COLORS[remaining_level(snapshot.five_hour)],
             anchor="w",
-            width=9,
         )
         five_label.pack(side="left")
 
+        five_reset_label = tk.Label(
+            row,
+            text=format_reset_time(snapshot.five_hour),
+            font=self._mono,
+            fg="#4b5563",
+            anchor="w",
+        )
+        five_reset_label.pack(side="left")
+
         weekly_label = tk.Label(
             row,
-            text=f"WK {format_percent(snapshot.weekly):>4}",
+            text=f"  WK {format_percent(snapshot.weekly):>3} ",
             font=self._mono,
             fg=LEVEL_COLORS[remaining_level(snapshot.weekly)],
             anchor="w",
-            width=9,
         )
         weekly_label.pack(side="left")
 
-        hint = format_reset_hint(snapshot)
-        suffix = format_status_suffix(status, snapshot)
-        if status == STATUS_OK:
-            tail = hint
-        elif status == STATUS_STALE:
-            tail = f"{hint}  stale" if hint != "-" else "stale"
-        else:
-            tail = suffix or hint
-        tail_color = STATUS_COLORS.get(status, "#4b5563")
-        tail_label = tk.Label(
+        weekly_reset_label = tk.Label(
             row,
-            text=tail,
+            text=format_reset_time(snapshot.weekly),
             font=self._mono,
-            fg=tail_color,
+            fg="#4b5563",
             anchor="w",
         )
-        tail_label.pack(side="left", fill="x", expand=True)
+        weekly_reset_label.pack(side="left")
+
+        suffix = format_status_suffix(status, snapshot)
+        if suffix:
+            tail_label = tk.Label(
+                row,
+                text=f"  {suffix}",
+                font=self._mono,
+                fg=STATUS_COLORS.get(status, "#4b5563"),
+                anchor="w",
+            )
+            tail_label.pack(side="left")
 
 
 def run() -> None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 from zcounter.models import QuotaSnapshot, RateWindow, utc_now
 
@@ -11,6 +11,8 @@ LEVEL_DANGER = "danger"
 STATUS_OK = "ok"
 STATUS_STALE = "stale"
 STATUS_ERROR = "error"
+
+EMAIL_WIDTH = 18
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
@@ -64,27 +66,33 @@ def format_percent(window: RateWindow | None) -> str:
     return f"{window.remaining_percent:.0f}%"
 
 
-def format_reset(window: RateWindow | None, now: datetime | None = None) -> str | None:
-    if window is None or window.reset_at is None:
-        return None
-    current = now or utc_now()
-    delta = window.reset_at - current
-    if delta.total_seconds() <= 0:
+def format_reset_at(reset_at: datetime | None, now: datetime | None = None) -> str:
+    if reset_at is None:
+        return "-"
+    current = _local_now(now)
+    local_reset = reset_at.astimezone()
+    if local_reset <= current:
         return "now"
-    return _format_timedelta(delta)
+    if local_reset.date() == current.date():
+        return local_reset.strftime("%H:%M")
+    date_part = f"{local_reset.year}/{local_reset.month}/{local_reset.day}"
+    time_part = f"{local_reset.hour}:{local_reset.minute:02d}"
+    return f"{date_part}  {time_part}"
 
 
-def format_reset_hint(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
-    parts: list[str] = []
-    five_hour_reset = format_reset(snapshot.five_hour, now)
-    weekly_reset = format_reset(snapshot.weekly, now)
-    if five_hour_reset is not None:
-        parts.append(f"5H~{five_hour_reset}")
-    if weekly_reset is not None:
-        parts.append(f"WK~{weekly_reset}")
-    if parts:
-        return " ".join(parts)
-    return "-"
+def format_reset_time(window: RateWindow | None, now: datetime | None = None) -> str:
+    if window is None:
+        return "-"
+    return format_reset_at(window.reset_at, now)
+
+
+def format_account_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
+    email = format_email(snapshot.email, width=EMAIL_WIDTH)
+    five_pct = format_percent(snapshot.five_hour)
+    five_reset = format_reset_time(snapshot.five_hour, now)
+    wk_pct = format_percent(snapshot.weekly)
+    wk_reset = format_reset_time(snapshot.weekly, now)
+    return f"{email}5H {five_pct:>3} {five_reset}  WK {wk_pct:>3} {wk_reset}"
 
 
 def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
@@ -95,22 +103,19 @@ def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
     return ""
 
 
-def format_email(email: str | None, width: int = 28) -> str:
+def format_email(email: str | None, width: int = EMAIL_WIDTH) -> str:
     label = email or "-"
     if len(label) <= width:
         return label.ljust(width)
     return label[: width - 1] + "…"
 
 
-def _format_timedelta(delta: timedelta) -> str:
-    total_minutes = int(delta.total_seconds() // 60)
-    if total_minutes < 60:
-        return f"{total_minutes}m"
-    hours, minutes = divmod(total_minutes, 60)
-    if hours < 48:
-        return f"{hours}h{minutes:02d}m" if minutes else f"{hours}h"
-    days, hours = divmod(hours, 24)
-    return f"{days}d{hours}h" if hours else f"{days}d"
+def _local_now(now: datetime | None) -> datetime:
+    if now is None:
+        return datetime.now().astimezone()
+    if now.tzinfo is None:
+        return now.replace(tzinfo=timezone.utc).astimezone()
+    return now.astimezone()
 
 
 def _truncate(value: str, max_len: int) -> str:
