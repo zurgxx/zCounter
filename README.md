@@ -7,7 +7,17 @@ Simple Codex quota CLI for accounts managed by `loongphy/codex-auth`.
 ```bash
 python3 -m zcounter.cli
 python3 -m zcounter.cli --json
+python3 -m zcounter.ui
 ```
+
+### Desktop UI (v0.1)
+
+`python3 -m zcounter.ui` opens a small always-on-top Tkinter window. It shows one
+line per Codex account (email, 5-hour and weekly remaining %, reset estimate) and
+refreshes every 60 seconds. Failed fetches keep the last successful values and
+mark the row as `stale` or show a short error hint.
+
+Requires a graphical display (X11/Wayland on Linux, or native GUI on macOS/Windows).
 
 The v0.1 implementation uses `codex-auth` as the management data source:
 
