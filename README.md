@@ -50,6 +50,29 @@ cookie_header = ""
 
 `cookie_header` は secret として扱ってください。設定ファイルは `chmod 600` などで、自分以外が読めない権限にすることを推奨します。config が存在しない、`enabled = false`、または `cookie_header` が空の場合、Cursor 行は表示されません。
 
+`cookie_header` は `cursor.toml` を手動で編集しても設定できます。DevTools の **Copy as cURL** から Cookie だけを抜き出す場合は、`scripts/update_cursor_cookie.py` を使えます。
+
+1. ブラウザで Cursor にログインする
+2. DevTools → Network で `/api/auth/me` または `/api/usage-summary` のリクエストを選ぶ
+3. **Copy as cURL**
+4. WSL で次を実行する:
+
+```bash
+python3 scripts/update_cursor_cookie.py
+```
+
+5. Copy as cURL の出力をそのまま貼り付ける
+6. `Ctrl+D` で入力を終了する
+7. `~/.config/zcounter/cursor.toml` が作成または更新される
+8. `python3 -m zcounter.cli` で Cursor 行が表示されることを確認する
+
+スクリプトは Cookie の値そのものは表示しません。書き込み先パス、Cookie 文字列の長さ、`contains_workos` などの検査結果のみを標準出力します。
+
+**注意（secret）**
+
+- **`WorkosCursorSessionToken` などの Cookie / トークンは secret です。** チャット、Issue、スクショに貼らないでください。
+- Cursor からログアウトすると Cookie が無効になることがあります。期限切れや無効な Cookie のときは、zCounter が `cursor session is invalid or expired` のようなエラーを表示することがあります。その場合は上記の手順で Cookie を取り直してください。
+
 暗黙パスの config が壊れている場合、または `ZCOUNTER_CURSOR_CONFIG` で明示した path が存在しない・壊れている場合は、secret を含まない Cursor error 行を表示します。
 
 ## JSON 出力
