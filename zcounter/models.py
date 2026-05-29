@@ -18,6 +18,23 @@ def parse_unix_timestamp(value: Any) -> datetime | None:
         return None
 
 
+def parse_iso_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def isoformat_or_none(value: datetime | None) -> str | None:
     if value is None:
         return None
@@ -57,17 +74,32 @@ class QuotaSnapshot:
     source: str
     updated_at: datetime
     error: str | None = None
+    primary: RateWindow | None = None
+    secondary: RateWindow | None = None
+    primary_label: str | None = None
+    secondary_label: str | None = None
+    provider_account_id: str | None = None
+    warnings: tuple[str, ...] = ()
+    details: dict[str, Any] | None = None
 
     def to_json(self) -> dict[str, Any]:
+        primary = self.primary or self.five_hour
+        secondary = self.secondary or self.weekly
         return {
             "provider": self.provider,
             "email": self.email,
             "plan": self.plan,
             "chatgpt_account_id": self.chatgpt_account_id,
+            "provider_account_id": self.provider_account_id,
             "five_hour": self.five_hour.to_json() if self.five_hour else None,
             "weekly": self.weekly.to_json() if self.weekly else None,
+            "primary": primary.to_json() if primary else None,
+            "secondary": secondary.to_json() if secondary else None,
+            "primary_label": self.primary_label,
+            "secondary_label": self.secondary_label,
             "source": self.source,
             "updated_at": isoformat_or_none(self.updated_at),
             "error": self.error,
+            "warnings": list(self.warnings),
+            "details": self.details or {},
         }
-

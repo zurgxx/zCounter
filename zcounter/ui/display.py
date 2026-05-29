@@ -16,11 +16,13 @@ EMAIL_WIDTH = 18
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
+    if snapshot.provider_account_id:
+        return f"{snapshot.provider}:{snapshot.provider_account_id}"
     if snapshot.chatgpt_account_id:
-        return snapshot.chatgpt_account_id
+        return f"{snapshot.provider}:{snapshot.chatgpt_account_id}"
     if snapshot.email:
-        return snapshot.email
-    return "unknown"
+        return f"{snapshot.provider}:{snapshot.email}"
+    return f"{snapshot.provider}:unknown"
 
 
 def merge_with_cache(
@@ -43,8 +45,15 @@ def merge_with_cache(
         source=fresh.source,
         updated_at=fresh.updated_at,
         error=fresh.error,
+        primary=fresh.primary or cached.primary or fresh.five_hour or cached.five_hour,
+        secondary=fresh.secondary or cached.secondary or fresh.weekly or cached.weekly,
+        primary_label=fresh.primary_label or cached.primary_label,
+        secondary_label=fresh.secondary_label or cached.secondary_label,
+        provider_account_id=fresh.provider_account_id or cached.provider_account_id,
+        warnings=fresh.warnings or cached.warnings,
+        details=fresh.details or cached.details,
     )
-    if merged.five_hour is not None or merged.weekly is not None:
+    if merged.primary is not None or merged.secondary is not None:
         return merged, STATUS_STALE
     return fresh, STATUS_ERROR
 
@@ -88,11 +97,15 @@ def format_reset_time(window: RateWindow | None, now: datetime | None = None) ->
 
 def format_account_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
     email = format_email(snapshot.email, width=EMAIL_WIDTH)
-    five_pct = format_percent(snapshot.five_hour)
-    five_reset = format_reset_time(snapshot.five_hour, now)
-    wk_pct = format_percent(snapshot.weekly)
-    wk_reset = format_reset_time(snapshot.weekly, now)
-    return f"{email}5H {five_pct:>3} {five_reset}  WK {wk_pct:>3} {wk_reset}"
+    primary = display_primary(snapshot)
+    secondary = display_secondary(snapshot)
+    primary_pct = format_percent(primary)
+    primary_reset = format_reset_time(primary, now)
+    secondary_pct = format_percent(secondary)
+    secondary_reset = format_reset_time(secondary, now)
+    primary_label = format_window_label(snapshot.primary_label, "P")
+    secondary_label = format_window_label(snapshot.secondary_label, "S")
+    return f"{email}{primary_label} {primary_pct:>3} {primary_reset}  {secondary_label} {secondary_pct:>3} {secondary_reset}"
 
 
 def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
@@ -100,7 +113,22 @@ def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
         return "stale"
     if status == STATUS_ERROR and snapshot.error:
         return _truncate(snapshot.error, 40)
+    if snapshot.warnings:
+        return _truncate(snapshot.warnings[0], 40)
     return ""
+
+
+def display_primary(snapshot: QuotaSnapshot) -> RateWindow | None:
+    return snapshot.primary or snapshot.five_hour
+
+
+def display_secondary(snapshot: QuotaSnapshot) -> RateWindow | None:
+    return snapshot.secondary or snapshot.weekly
+
+
+def format_window_label(label: str | None, fallback: str) -> str:
+    value = label or fallback
+    return value[:5].ljust(5)
 
 
 def format_email(email: str | None, width: int = EMAIL_WIDTH) -> str:

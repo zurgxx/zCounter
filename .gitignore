@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 .mypy_cache/
 .pytest_cache/
+.zcounter/
+cursor.local.toml
+*.secret.toml
+.env

@@ -1,9 +1,8 @@
 [project]
 name = "zcounter"
-version = "0.1.0"
-description = "Simple Codex quota display CLI"
+version = "0.2.0"
+description = "Simple quota display CLI"
 requires-python = ">=3.11"
 
 [project.scripts]
 zcounter = "zcounter.cli:main"
-

@@ -5,17 +5,20 @@ import tkinter as tk
 from tkinter import font as tkfont
 
 from zcounter.models import QuotaSnapshot, isoformat_or_none, utc_now
-from zcounter.providers.codex.provider import fetch_codex_quotas
+from zcounter.providers.aggregate import fetch_all_quotas
 from zcounter.ui.display import (
     EMAIL_WIDTH,
     STATUS_ERROR,
     STATUS_OK,
     STATUS_STALE,
+    display_primary,
+    display_secondary,
     account_key,
     format_email,
     format_percent,
     format_reset_time,
     format_status_suffix,
+    format_window_label,
     merge_with_cache,
     remaining_level,
 )
@@ -58,7 +61,7 @@ class QuotaUI:
 
         self._header = tk.Label(
             root,
-            text="zCounter  Codex quotas",
+            text="zCounter  quotas",
             font=("TkDefaultFont", 9, "bold"),
             anchor="w",
         )
@@ -91,7 +94,7 @@ class QuotaUI:
 
     def _fetch_worker(self) -> None:
         try:
-            snapshots = fetch_codex_quotas()
+            snapshots = fetch_all_quotas()
         except Exception:
             self.root.after(0, self._apply_fetch_failure)
             return
@@ -167,41 +170,46 @@ class QuotaUI:
         )
         email_label.pack(side="left")
 
-        five_label = tk.Label(
+        primary = display_primary(snapshot)
+        secondary = display_secondary(snapshot)
+        primary_label = format_window_label(snapshot.primary_label, "P")
+        secondary_label = format_window_label(snapshot.secondary_label, "S")
+
+        primary_label_widget = tk.Label(
             row,
-            text=f"5H {format_percent(snapshot.five_hour):>3} ",
+            text=f"{primary_label} {format_percent(primary):>3} ",
             font=self._mono,
-            fg=LEVEL_COLORS[remaining_level(snapshot.five_hour)],
+            fg=LEVEL_COLORS[remaining_level(primary)],
             anchor="w",
         )
-        five_label.pack(side="left")
+        primary_label_widget.pack(side="left")
 
-        five_reset_label = tk.Label(
+        primary_reset_label = tk.Label(
             row,
-            text=format_reset_time(snapshot.five_hour),
+            text=format_reset_time(primary),
             font=self._mono,
             fg="#4b5563",
             anchor="w",
         )
-        five_reset_label.pack(side="left")
+        primary_reset_label.pack(side="left")
 
-        weekly_label = tk.Label(
+        secondary_label_widget = tk.Label(
             row,
-            text=f"  WK {format_percent(snapshot.weekly):>3} ",
+            text=f"  {secondary_label} {format_percent(secondary):>3} ",
             font=self._mono,
-            fg=LEVEL_COLORS[remaining_level(snapshot.weekly)],
+            fg=LEVEL_COLORS[remaining_level(secondary)],
             anchor="w",
         )
-        weekly_label.pack(side="left")
+        secondary_label_widget.pack(side="left")
 
-        weekly_reset_label = tk.Label(
+        secondary_reset_label = tk.Label(
             row,
-            text=format_reset_time(snapshot.weekly),
+            text=format_reset_time(secondary),
             font=self._mono,
             fg="#4b5563",
             anchor="w",
         )
-        weekly_reset_label.pack(side="left")
+        secondary_reset_label.pack(side="left")
 
         suffix = format_status_suffix(status, snapshot)
         if suffix:

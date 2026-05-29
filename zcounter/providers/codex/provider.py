@@ -28,6 +28,8 @@ def fetch_codex_quotas(registry_file: Path | None = None) -> list[QuotaSnapshot]
                 source="codex-auth-registry",
                 updated_at=utc_now(),
                 error=str(exc),
+                primary_label="5H",
+                secondary_label="WK",
             )
         ]
 
@@ -64,6 +66,11 @@ def _fetch_account_quota(account, auths_by_account_id) -> QuotaSnapshot:
             source="wham-usage",
             updated_at=utc_now(),
             error=None,
+            primary=five_hour,
+            secondary=weekly,
+            primary_label="5H",
+            secondary_label="WK",
+            provider_account_id=account_id,
         )
     except (UsageAPIError, UsageShapeError) as exc:
         return _error_snapshot(account, str(exc), utc_now())
@@ -82,6 +89,9 @@ def _error_snapshot(account, message: str, updated_at) -> QuotaSnapshot:
         source="wham-usage",
         updated_at=updated_at,
         error=message,
+        primary_label="5H",
+        secondary_label="WK",
+        provider_account_id=account.chatgpt_account_id,
     )
 
 
