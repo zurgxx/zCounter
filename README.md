@@ -1,8 +1,8 @@
 # zCounter
 
-Simple Codex quota CLI for accounts managed by `loongphy/codex-auth`.
+[`loongphy/codex-auth`](https://github.com/loongphy/codex-auth) で管理している Codex アカウントのクォータ残量を、CLI または常時表示 UI で確認するツールです。
 
-## Usage
+## 使い方
 
 ```bash
 python3 -m zcounter.cli
@@ -10,56 +10,60 @@ python3 -m zcounter.cli --json
 python3 -m zcounter.ui
 ```
 
-### Desktop UI (v0.1)
+### デスクトップ UI（v0.1）
 
-`python3 -m zcounter.ui` opens a small always-on-top Tkinter window. It shows one
-line per Codex account (email, 5-hour and weekly remaining %, reset estimate) and
-refreshes every 60 seconds. Failed fetches keep the last successful values and
-mark the row as `stale` or show a short error hint.
+`python3 -m zcounter.ui` で、小さな常時最前面ウィンドウを開きます。
 
-Requires a graphical display (X11/Wayland on Linux, or native GUI on macOS/Windows).
+- 各 Codex アカウントを 1 行で表示（メールアドレス、5 時間枠・週枠の残量 %、リセット目安）
+- 60 秒ごとに自動更新
+- 取得に失敗した行は、直前の成功値を残して `stale` または短いエラー表示にする
 
-The v0.1 implementation uses `codex-auth` as the management data source:
+Linux では X11 / Wayland などのグラフィカル環境が必要です。macOS / Windows では通常の GUI 環境で動作します。  
+Tkinter を使うため、Linux では `python3-tk` などのパッケージが別途必要な場合があります。
 
-- Reads `~/.codex/accounts/registry.json`.
-- Matches `~/.codex/accounts/*.auth.json` by ChatGPT account ID.
-- Calls `https://chatgpt.com/backend-api/wham/usage`.
+## データの読み方（v0.1）
 
-If `CODEX_HOME` is set, zCounter reads `${CODEX_HOME}/accounts/registry.json`
-and `${CODEX_HOME}/accounts/*.auth.json` instead of `~/.codex/...`.
+v0.1 は `codex-auth` の管理データを参照します。
 
-## JSON Output
+- `~/.codex/accounts/registry.json` を読む
+- ChatGPT アカウント ID で `~/.codex/accounts/*.auth.json` と突き合わせる
+- `https://chatgpt.com/backend-api/wham/usage` を呼び出す
 
-`--json` prints one normalized object per account. Main fields:
+環境変数 `CODEX_HOME` が設定されている場合は、`~/.codex/...` の代わりに `${CODEX_HOME}/accounts/...` を参照します。
 
-- `provider`: currently always `codex`.
-- `email`: account email from the codex-auth registry or token identity.
-- `plan`: plan label from the registry or usage response.
-- `chatgpt_account_id`: account ID used for matching and API requests.
-- `five_hour`: normalized 5-hour quota window, or `null`.
-- `weekly`: normalized weekly quota window, or `null`.
-- `source`: currently `wham-usage` or `codex-auth-registry`.
-- `updated_at`: UTC timestamp for the snapshot.
-- `error`: account-specific error string, or `null`.
+## JSON 出力
 
-Each quota window contains `used_percent`, `remaining_percent`, `reset_at`, and
-`window_minutes`.
+`--json` を付けると、アカウントごとに正規化した JSON を 1 件ずつ出力します。主なフィールドは次のとおりです。
 
-## Error Model
+| フィールド | 内容 |
+|-----------|------|
+| `provider` | 現在は常に `codex` |
+| `email` | レジストリまたはトークン情報から得たメールアドレス |
+| `plan` | レジストリまたは usage 応答のプラン名 |
+| `chatgpt_account_id` | 突き合わせ・API 呼び出しに使うアカウント ID |
+| `five_hour` | 5 時間枠のクォータ（正規化済み）。無い場合は `null` |
+| `weekly` | 週枠のクォータ（正規化済み）。無い場合は `null` |
+| `source` | 現在は `wham-usage` または `codex-auth-registry` |
+| `updated_at` | スナップショット取得時刻（UTC） |
+| `error` | アカウント単位のエラー文字列。正常時は `null` |
 
-The CLI is designed to exit `0` in normal diagnostic cases and report failures
-per account via the `error` field. Missing registry files, missing auth files,
-401/403 responses, network failures, and usage response shape changes should not
-crash the whole command.
+各クォータ枠（`five_hour` / `weekly`）には、次の値が入ります。
 
-## Limitations and Safety
+- `used_percent` … 使用率（%）
+- `remaining_percent` … 残量（%）
+- `reset_at` … リセット予定時刻
+- `window_minutes` … 枠の長さ（分）
 
-v0.1 does not refresh expired tokens. If the usage API returns 401/403, refresh
-the account with Codex/codex-auth and run zCounter again.
+## エラーの扱い
 
-`wham/usage` is not a stable public API. Its endpoint or response shape may
-change without notice.
+CLI は、通常の診断用途では **終了コード 0** のまま動く想定です。  
+レジストリや auth ファイルの欠落、401 / 403、ネットワーク障害、usage 応答形式の変化などは、コマンド全体を落とさず、各アカウントの `error` フィールドに載せます。
 
-Tokens are used only for the request header and are not printed.
-Be careful when sharing terminal screenshots because account emails, account IDs,
-quota values, and error messages may still be visible.
+UI でも同様に、取得失敗時は可能な限り直前の表示を残します。
+
+## 制限と注意
+
+- **v0.1 は期限切れトークンを自動更新しません。** usage API が 401 / 403 を返した場合は、Codex / codex-auth 側でアカウントを更新してから、再度 zCounter を実行してください。
+- **`wham/usage` は安定した公開 API ではありません。** エンドポイントやレスポンス形式が予告なく変わる可能性があります。
+- **トークンはリクエストヘッダにのみ使い、画面やログには出しません。**
+- ターミナルのスクショや JSON の共有時には、メールアドレス・アカウント ID・残量・エラーメッセージなどが写る点に注意してください。
