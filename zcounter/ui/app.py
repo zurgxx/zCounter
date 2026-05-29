@@ -4,27 +4,31 @@ import threading
 import tkinter as tk
 from tkinter import font as tkfont
 
-from zcounter.models import QuotaSnapshot, isoformat_or_none, utc_now
+from zcounter.models import QuotaSnapshot, utc_now
 from zcounter.providers.aggregate import fetch_all_quotas
 from zcounter.ui.display import (
     EMAIL_WIDTH,
+    REFRESH_SECONDS,
     STATUS_ERROR,
     STATUS_OK,
     STATUS_STALE,
+    account_key,
     display_primary,
     display_secondary,
-    account_key,
+    format_cursor_billing_reset,
     format_email,
     format_percent,
     format_reset_time,
     format_status_suffix,
+    format_updated_footer,
     format_window_label,
+    is_cursor,
     merge_with_cache,
     remaining_level,
 )
 
-REFRESH_MS = 60_000
-WINDOW_WIDTH = 500
+REFRESH_MS = REFRESH_SECONDS * 1000
+WINDOW_WIDTH = 540
 ROW_HEIGHT = 18
 HEADER_HEIGHT = 28
 FOOTER_HEIGHT = 20
@@ -52,7 +56,7 @@ class QuotaUI:
         self._cache: dict[str, QuotaSnapshot] = {}
         self._status_by_key: dict[str, str] = {}
         self._fetching = False
-        self._last_refresh: str = "-"
+        self._last_refresh_at = utc_now()
 
         mono = tkfont.Font(family="DejaVu Sans Mono", size=9)
         if mono.actual("family") == "TkFixedFont":
@@ -110,9 +114,11 @@ class QuotaUI:
             (snapshot, STATUS_STALE)
             for snapshot in self._cache.values()
         ]
-        self._last_refresh = isoformat_or_none(utc_now()) or "-"
+        self._last_refresh_at = utc_now()
         self._render_rows(merged)
-        self._footer.configure(text=f"fetch failed  ·  updated {self._last_refresh}  ·  refresh 60s")
+        self._footer.configure(
+            text=f"fetch failed  ·  {format_updated_footer(self._last_refresh_at)}",
+        )
 
     def _apply_snapshots(self, snapshots: list[QuotaSnapshot]) -> None:
         self._fetching = False
@@ -128,9 +134,9 @@ class QuotaUI:
             self._status_by_key[key] = status
             merged.append((merged_snapshot, status))
 
-        self._last_refresh = isoformat_or_none(utc_now()) or "-"
+        self._last_refresh_at = utc_now()
         self._render_rows(merged)
-        self._footer.configure(text=f"updated {self._last_refresh}  ·  refresh 60s")
+        self._footer.configure(text=format_updated_footer(self._last_refresh_at))
 
     def _render_rows(self, rows: list[tuple[QuotaSnapshot, str]]) -> None:
         for child in self._rows_frame.winfo_children():
@@ -157,9 +163,12 @@ class QuotaUI:
         self.root.geometry(f"{WINDOW_WIDTH}x{height}")
 
     def _add_row(self, snapshot: QuotaSnapshot, status: str) -> None:
-        row = tk.Frame(self._rows_frame)
-        row.pack(fill="x", pady=0)
+        if is_cursor(snapshot):
+            self._add_cursor_row(snapshot, status)
+        else:
+            self._add_codex_row(snapshot, status)
 
+    def _add_email_label(self, row: tk.Frame, snapshot: QuotaSnapshot) -> None:
         email_label = tk.Label(
             row,
             text=format_email(snapshot.email, width=EMAIL_WIDTH),
@@ -169,6 +178,60 @@ class QuotaUI:
             width=EMAIL_WIDTH,
         )
         email_label.pack(side="left")
+
+    def _add_cursor_row(self, snapshot: QuotaSnapshot, status: str) -> None:
+        row = tk.Frame(self._rows_frame)
+        row.pack(fill="x", pady=0)
+        self._add_email_label(row, snapshot)
+
+        primary = display_primary(snapshot)
+        secondary = display_secondary(snapshot)
+
+        total_label = tk.Label(
+            row,
+            text=f"Total {format_percent(primary)} ",
+            font=self._mono,
+            fg=LEVEL_COLORS[remaining_level(primary)],
+            anchor="w",
+        )
+        total_label.pack(side="left")
+
+        auto_label = tk.Label(
+            row,
+            text=f"Auto {format_percent(secondary)} ",
+            font=self._mono,
+            fg=LEVEL_COLORS[remaining_level(secondary)],
+            anchor="w",
+        )
+        auto_label.pack(side="left")
+
+        reset_label = tk.Label(
+            row,
+            text=format_cursor_billing_reset(
+                primary.reset_at if primary is not None else None,
+            ),
+            font=self._mono,
+            fg="#4b5563",
+            anchor="w",
+            width=16,
+        )
+        reset_label.pack(side="left")
+
+        suffix = format_status_suffix(status, snapshot)
+        if suffix:
+            tail_label = tk.Label(
+                row,
+                text=f"  {suffix}",
+                font=self._mono,
+                fg=STATUS_COLORS.get(status, "#4b5563"),
+                anchor="w",
+            )
+            tail_label.pack(side="left")
+
+    def _add_codex_row(self, snapshot: QuotaSnapshot, status: str) -> None:
+        row = tk.Frame(self._rows_frame)
+        row.pack(fill="x", pady=0)
+        self._add_email_label(row, snapshot)
 
         primary = display_primary(snapshot)
         secondary = display_secondary(snapshot)

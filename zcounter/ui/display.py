@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from zcounter.models import QuotaSnapshot, RateWindow, utc_now
+
+JST = ZoneInfo("Asia/Tokyo")
 
 LEVEL_NORMAL = "normal"
 LEVEL_WARNING = "warning"
@@ -12,7 +15,9 @@ STATUS_OK = "ok"
 STATUS_STALE = "stale"
 STATUS_ERROR = "error"
 
-EMAIL_WIDTH = 18
+EMAIL_WIDTH = 20
+CURSOR_QUOTA_WIDTH = 38
+REFRESH_SECONDS = 60
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
@@ -75,6 +80,28 @@ def format_percent(window: RateWindow | None) -> str:
     return f"{window.remaining_percent:.0f}%"
 
 
+def format_updated_at_jst(value: datetime) -> str:
+    local = _to_jst(value)
+    return (
+        f"{local.year}/{local.month}/{local.day} "
+        f"{local.hour}:{local.minute:02d}:{local.second:02d} JST"
+    )
+
+
+def format_updated_footer(updated_at: datetime, refresh_seconds: int = 60) -> str:
+    stamp = format_updated_at_jst(updated_at)
+    return f"updated {stamp} : refresh {refresh_seconds}s"
+
+
+def format_cursor_billing_reset(reset_at: datetime | None) -> str:
+    if reset_at is None:
+        return "-"
+    local_reset = reset_at.astimezone()
+    date_part = f"{local_reset.year}/{local_reset.month}/{local_reset.day}"
+    time_part = f"{local_reset.hour}:{local_reset.minute:02d}"
+    return f"{date_part} {time_part}"
+
+
 def format_reset_at(reset_at: datetime | None, now: datetime | None = None) -> str:
     if reset_at is None:
         return "-"
@@ -95,7 +122,24 @@ def format_reset_time(window: RateWindow | None, now: datetime | None = None) ->
     return format_reset_at(window.reset_at, now)
 
 
-def format_account_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
+def is_cursor(snapshot: QuotaSnapshot) -> bool:
+    return snapshot.provider == "cursor"
+
+
+def format_cursor_row(snapshot: QuotaSnapshot) -> str:
+    email = format_email(snapshot.email, width=EMAIL_WIDTH)
+    primary = display_primary(snapshot)
+    secondary = display_secondary(snapshot)
+    total = f"Total {format_percent(primary)}"
+    auto = f"Auto {format_percent(secondary)}"
+    reset = format_cursor_billing_reset(
+        primary.reset_at if primary is not None else None,
+    )
+    quota = f"{total} {auto} {reset}".ljust(CURSOR_QUOTA_WIDTH)
+    return f"{email}{quota}"
+
+
+def format_codex_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
     email = format_email(snapshot.email, width=EMAIL_WIDTH)
     primary = display_primary(snapshot)
     secondary = display_secondary(snapshot)
@@ -108,7 +152,17 @@ def format_account_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> 
     return f"{email}{primary_label} {primary_pct:>3} {primary_reset}  {secondary_label} {secondary_pct:>3} {secondary_reset}"
 
 
+def format_account_row(snapshot: QuotaSnapshot, now: datetime | None = None) -> str:
+    if is_cursor(snapshot):
+        return format_cursor_row(snapshot)
+    return format_codex_row(snapshot, now)
+
+
 def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
+    if is_cursor(snapshot):
+        if status == STATUS_STALE:
+            return "stale"
+        return ""
     if status == STATUS_STALE:
         return "stale"
     if status == STATUS_ERROR and snapshot.error:
@@ -136,6 +190,12 @@ def format_email(email: str | None, width: int = EMAIL_WIDTH) -> str:
     if len(label) <= width:
         return label.ljust(width)
     return label[: width - 1] + "…"
+
+
+def _to_jst(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(JST)
 
 
 def _local_now(now: datetime | None) -> datetime:
