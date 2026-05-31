@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter Mock — 案1-3 Stacked metrics</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --border: rgba(0, 0, 0, 0.06);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+      --safe: #34c759;
+      --critical: #ff3b30;
+      --safe-bg: rgba(52, 199, 89, 0.12);
+      --critical-bg: rgba(255, 59, 48, 0.12);
+      --radius: 14px;
+      --popover-w: 340px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px;
+      background: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .popover {
+      width: var(--popover-w);
+      background: var(--bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .variant-label {
+      padding: 8px 14px 0;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px 12px;
+    }
+    .header h1 { font-size: 15px; font-weight: 600; }
+    .header .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--critical);
+      box-shadow: 0 0 0 3px var(--critical-bg);
+    }
+    .cards { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+    }
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .provider {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .account { font-size: 15px; font-weight: 600; margin-top: 2px; }
+    .plan { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+    .status-pill {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .status-pill.safe { background: var(--safe-bg); color: #248a3d; }
+    .status-pill.critical { background: var(--critical-bg); color: #d70015; }
+    .metric-stack { display: flex; flex-direction: column; gap: 8px; }
+    .metric-block {
+      padding: 10px 12px;
+      background: #f9f9fb;
+      border-radius: 10px;
+    }
+    .metric-block.critical-highlight {
+      background: rgba(255, 59, 48, 0.06);
+      outline: 1px solid rgba(255, 59, 48, 0.12);
+    }
+    .block-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .block-head .name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .block-head .pct {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .block-head .pct.safe { color: var(--safe); }
+    .block-head .pct.critical { color: var(--critical); }
+    .bar {
+      height: 5px;
+      background: #e5e5ea;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 3px; }
+    .bar-fill.safe { background: var(--safe); }
+    .bar-fill.critical { background: var(--critical); }
+    .block-reset {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+    .block-reset .time {
+      font-size: 11px;
+      color: var(--text);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    .footer {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.6);
+    }
+    .footer button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #007aff;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .footer button:hover { background: rgba(0, 0, 0, 0.04); }
+    .footer button + button { border-left: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="popover" role="dialog" aria-label="zCounter">
+    <p class="variant-label">案1-3 — メトリク縦積み（% + bar + reset）</p>
+    <header class="header">
+      <h1>zCounter</h1>
+      <span class="dot" title="1件 critical"></span>
+    </header>
+
+    <div class="cards">
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <div class="provider">Codex</div>
+            <div class="account">zurgxx</div>
+            <div class="plan">Plus</div>
+          </div>
+          <span class="status-pill critical">Critical</span>
+        </div>
+        <div class="metric-stack">
+          <div class="metric-block">
+            <div class="block-head">
+              <span class="name">5H usage</span>
+              <span class="pct safe">99%</span>
+            </div>
+            <div class="bar"><div class="bar-fill safe" style="width:99%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">19:10</span>
+            </div>
+          </div>
+          <div class="metric-block critical-highlight">
+            <div class="block-head">
+              <span class="name">Weekly</span>
+              <span class="pct critical">2%</span>
+            </div>
+            <div class="bar"><div class="bar-fill critical" style="width:2%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">6/3 0:00</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <div class="provider">Codex</div>
+            <div class="account">rock</div>
+            <div class="plan">Plus</div>
+          </div>
+          <span class="status-pill safe">Safe</span>
+        </div>
+        <div class="metric-stack">
+          <div class="metric-block">
+            <div class="block-head">
+              <span class="name">5H usage</span>
+              <span class="pct safe">54%</span>
+            </div>
+            <div class="bar"><div class="bar-fill safe" style="width:54%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">15:20</span>
+            </div>
+          </div>
+          <div class="metric-block">
+            <div class="block-head">
+              <span class="name">Weekly</span>
+              <span class="pct safe">93%</span>
+            </div>
+            <div class="bar"><div class="bar-fill safe" style="width:93%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">2026/6/1 9:54</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <div class="provider">Cursor</div>
+            <div class="account">rock</div>
+            <div class="plan">Cursor Pro</div>
+          </div>
+          <span class="status-pill safe">Safe</span>
+        </div>
+        <div class="metric-stack">
+          <div class="metric-block">
+            <div class="block-head">
+              <span class="name">Total</span>
+              <span class="pct safe">99%</span>
+            </div>
+            <div class="bar"><div class="bar-fill safe" style="width:99%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">2026/6/28 9:36</span>
+            </div>
+          </div>
+          <div class="metric-block">
+            <div class="block-head">
+              <span class="name">Auto</span>
+              <span class="pct safe">99%</span>
+            </div>
+            <div class="bar"><div class="bar-fill safe" style="width:99%"></div></div>
+            <div class="block-reset">
+              <span>Reset</span>
+              <span class="time">2026/6/28 9:36</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <footer class="footer">
+      <button type="button">Settings</button>
+      <button type="button">Refresh</button>
+    </footer>
+  </div>
+</body>
+</html>

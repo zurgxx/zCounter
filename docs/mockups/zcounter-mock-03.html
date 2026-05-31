@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter Mock — 案3 Status Emphasis</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --border: rgba(0, 0, 0, 0.06);
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+      --safe: #34c759;
+      --warning: #ff9500;
+      --critical: #ff3b30;
+      --popover-w: 340px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px;
+      background: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .popover {
+      width: var(--popover-w);
+      background: var(--bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .variant-label {
+      padding: 8px 14px 0;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .header {
+      padding: 10px 14px 12px;
+    }
+    .header h1 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .alert-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #fff5f5;
+      border: 1px solid rgba(255, 59, 48, 0.25);
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .alert-banner .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--critical);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .alert-banner strong { display: block; color: #d70015; font-size: 13px; }
+    .alert-banner span { color: var(--text-secondary); font-size: 11px; }
+    .summary-chips {
+      display: flex;
+      gap: 6px;
+      padding: 0 14px 10px;
+    }
+    .chip {
+      flex: 1;
+      text-align: center;
+      padding: 6px 4px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .chip.safe { background: rgba(52, 199, 89, 0.15); color: #248a3d; }
+    .chip.warning { background: rgba(255, 149, 0, 0.15); color: #c93400; }
+    .chip.critical { background: rgba(255, 59, 48, 0.15); color: #d70015; }
+    .chip .num { font-size: 18px; display: block; margin-top: 2px; font-weight: 700; }
+    .list { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .item {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border-left: 4px solid transparent;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+    }
+    .item.safe { border-left-color: var(--safe); }
+    .item.warning { border-left-color: var(--warning); }
+    .item.critical {
+      border-left-color: var(--critical);
+      background: linear-gradient(90deg, rgba(255, 59, 48, 0.04) 0%, #fff 24%);
+    }
+    .item-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .item-head .left { display: flex; align-items: center; gap: 8px; }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.safe { background: var(--safe); box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.25); }
+    .status-dot.warning { background: var(--warning); box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.25); }
+    .status-dot.critical { background: var(--critical); box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.25); }
+    .item-title { font-size: 14px; font-weight: 600; }
+    .item-sub { font-size: 11px; color: var(--text-secondary); }
+    .badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .badge.safe { background: var(--safe); color: #fff; }
+    .badge.warning { background: var(--warning); color: #fff; }
+    .badge.critical { background: var(--critical); color: #fff; }
+    .metrics-inline {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .metric-chip {
+      flex: 1;
+      min-width: calc(50% - 3px);
+      background: #f5f5f7;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .metric-chip.highlight {
+      background: rgba(255, 59, 48, 0.1);
+      outline: 1px solid rgba(255, 59, 48, 0.3);
+    }
+    .metric-chip .lbl { font-size: 10px; color: var(--text-secondary); }
+    .metric-chip .val {
+      font-size: 20px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+    }
+    .metric-chip .val.safe { color: var(--safe); }
+    .metric-chip .val.critical { color: var(--critical); }
+    .item-reset {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .footer {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.6);
+    }
+    .footer button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #007aff;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .footer button:hover { background: rgba(0, 0, 0, 0.04); }
+    .footer button + button { border-left: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="popover" role="dialog" aria-label="zCounter">
+    <p class="variant-label">案3 — Status Emphasis</p>
+    <header class="header">
+      <h1>zCounter</h1>
+      <div class="alert-banner" role="alert">
+        <span class="icon" aria-hidden="true">!</span>
+        <div>
+          <strong>Attention needed</strong>
+          <span>Codex / zurgxx — Weekly at 2%</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="summary-chips" aria-label="Status summary">
+      <div class="chip safe"><span>Safe</span><span class="num">2</span></div>
+      <div class="chip warning"><span>Warning</span><span class="num">0</span></div>
+      <div class="chip critical"><span>Critical</span><span class="num">1</span></div>
+    </div>
+
+    <div class="list">
+      <article class="item critical">
+        <div class="item-head">
+          <div class="left">
+            <span class="status-dot critical" aria-hidden="true"></span>
+            <div>
+              <div class="item-title">Codex · zurgxx</div>
+              <div class="item-sub">Plus</div>
+            </div>
+          </div>
+          <span class="badge critical">Critical</span>
+        </div>
+        <div class="metrics-inline">
+          <div class="metric-chip">
+            <div class="lbl">5H</div>
+            <div class="val safe">99%</div>
+          </div>
+          <div class="metric-chip highlight">
+            <div class="lbl">Weekly</div>
+            <div class="val critical">2%</div>
+          </div>
+        </div>
+        <p class="item-reset">Reset 19:10</p>
+      </article>
+
+      <article class="item safe">
+        <div class="item-head">
+          <div class="left">
+            <span class="status-dot safe" aria-hidden="true"></span>
+            <div>
+              <div class="item-title">Codex · rock</div>
+              <div class="item-sub">Plus</div>
+            </div>
+          </div>
+          <span class="badge safe">Safe</span>
+        </div>
+        <div class="metrics-inline">
+          <div class="metric-chip">
+            <div class="lbl">5H</div>
+            <div class="val safe">54%</div>
+          </div>
+          <div class="metric-chip">
+            <div class="lbl">Weekly</div>
+            <div class="val safe">93%</div>
+          </div>
+        </div>
+        <p class="item-reset">Reset 2026/6/1 9:54</p>
+      </article>
+
+      <article class="item safe">
+        <div class="item-head">
+          <div class="left">
+            <span class="status-dot safe" aria-hidden="true"></span>
+            <div>
+              <div class="item-title">Cursor · rock</div>
+              <div class="item-sub">Cursor Pro</div>
+            </div>
+          </div>
+          <span class="badge safe">Safe</span>
+        </div>
+        <div class="metrics-inline">
+          <div class="metric-chip">
+            <div class="lbl">Total</div>
+            <div class="val safe">99%</div>
+          </div>
+          <div class="metric-chip">
+            <div class="lbl">Auto</div>
+            <div class="val safe">99%</div>
+          </div>
+        </div>
+        <p class="item-reset">Reset 2026/6/28 9:36</p>
+      </article>
+    </div>
+
+    <footer class="footer">
+      <button type="button">Settings</button>
+      <button type="button">Refresh</button>
+    </footer>
+  </div>
+</body>
+</html>

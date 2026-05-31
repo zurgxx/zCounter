@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter Mock — 案4 Compact</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #86868b;
+      --border: rgba(0, 0, 0, 0.08);
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+      --safe: #34c759;
+      --warning: #ff9500;
+      --critical: #ff3b30;
+      --popover-w: 300px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px;
+      background: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .popover {
+      width: var(--popover-w);
+      background: var(--surface);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .variant-label {
+      padding: 6px 10px 0;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 13px; font-weight: 600; }
+    .header .updated { font-size: 10px; color: var(--text-secondary); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+    thead th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 6px 10px 4px;
+      border-bottom: 1px solid var(--border);
+      background: #f9f9f9;
+    }
+    thead th:not(:first-child) { text-align: right; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr.critical { background: rgba(255, 59, 48, 0.04); }
+    td {
+      padding: 7px 10px;
+      vertical-align: middle;
+    }
+    .acct-cell { max-width: 0; }
+    .acct-name {
+      font-weight: 600;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .acct-meta {
+      font-size: 10px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 1px;
+    }
+    .prov-tag {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: #eee;
+      color: #555;
+    }
+    .prov-tag.codex { background: #e8f5f1; color: #0d7a5f; }
+    .prov-tag.cursor { background: #f0ecf8; color: #5c4a8a; }
+    .pct {
+      text-align: right;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .pct.safe { color: var(--safe); }
+    .pct.critical { color: var(--critical); }
+    .mini-bar {
+      display: inline-block;
+      width: 36px;
+      height: 4px;
+      background: #e5e5ea;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 4px;
+      overflow: hidden;
+    }
+    .mini-bar i {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+    }
+    .mini-bar i.safe { background: var(--safe); }
+    .mini-bar i.critical { background: var(--critical); }
+    .reset-cell {
+      text-align: right;
+      font-size: 10px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .status-icon {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .status-icon.safe { background: var(--safe); }
+    .status-icon.critical { background: var(--critical); }
+    .footer {
+      display: flex;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .footer button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      color: #007aff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    .footer button:hover { background: rgba(0, 0, 0, 0.04); }
+    .footer button + button { border-left: 1px solid var(--border); }
+    .footer .quit { color: var(--text-secondary); flex: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="popover" role="dialog" aria-label="zCounter">
+    <p class="variant-label">案4 — Compact</p>
+    <header class="header">
+      <h1>zCounter</h1>
+      <span class="updated">60s</span>
+    </header>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Primary</th>
+          <th>Secondary</th>
+          <th>Reset</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="critical">
+          <td class="acct-cell">
+            <div class="acct-name"><span class="status-icon critical" aria-label="critical"></span>zurgxx</div>
+            <div class="acct-meta"><span class="prov-tag codex">Codex</span> Plus</div>
+          </td>
+          <td class="pct">
+            <span class="mini-bar"><i class="safe" style="width:99%"></i></span>99%
+          </td>
+          <td class="pct critical">
+            <span class="mini-bar"><i class="critical" style="width:2%"></i></span>2%
+          </td>
+          <td class="reset-cell">19:10</td>
+        </tr>
+        <tr>
+          <td class="acct-cell">
+            <div class="acct-name"><span class="status-icon safe" aria-label="safe"></span>rock</div>
+            <div class="acct-meta"><span class="prov-tag codex">Codex</span> Plus</div>
+          </td>
+          <td class="pct safe">
+            <span class="mini-bar"><i class="safe" style="width:54%"></i></span>54%
+          </td>
+          <td class="pct safe">
+            <span class="mini-bar"><i class="safe" style="width:93%"></i></span>93%
+          </td>
+          <td class="reset-cell">6/1 9:54</td>
+        </tr>
+        <tr>
+          <td class="acct-cell">
+            <div class="acct-name"><span class="status-icon safe" aria-label="safe"></span>rock</div>
+            <div class="acct-meta"><span class="prov-tag cursor">Cursor</span> Pro</div>
+          </td>
+          <td class="pct safe">
+            <span class="mini-bar"><i class="safe" style="width:99%"></i></span>99%
+          </td>
+          <td class="pct safe">
+            <span class="mini-bar"><i class="safe" style="width:99%"></i></span>99%
+          </td>
+          <td class="reset-cell">6/28 9:36</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <footer class="footer">
+      <button type="button">Settings</button>
+      <button type="button">Refresh</button>
+      <button type="button" class="quit">Quit</button>
+    </footer>
+  </div>
+  <script>
+    document.querySelectorAll('.footer button:not(.quit)').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        btn.textContent = btn.textContent === 'Refresh' ? '…' : btn.textContent;
+        if (btn.textContent === '…') setTimeout(() => { btn.textContent = 'Refresh'; }, 600);
+      });
+    });
+  </script>
+</body>
+</html>
