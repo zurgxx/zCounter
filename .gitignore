@@ -2,6 +2,7 @@ CodexBar/
 __pycache__/
 *.py[cod]
 .venv/
+*.egg-info/
 .mypy_cache/
 .pytest_cache/
 .zcounter/

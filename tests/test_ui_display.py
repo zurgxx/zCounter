@@ -62,11 +62,11 @@ class UIDisplayTests(unittest.TestCase):
             source="wham-usage",
             updated_at=datetime(2026, 5, 29, 7, 4, 40, tzinfo=timezone.utc),
             primary_label="5H",
-            secondary_label="WK",
+            secondary_label="WEEK",
         )
         row = format_account_row(snapshot)
         self.assertIn("5H", row)
-        self.assertIn("WK", row)
+        self.assertIn("WEEK", row)
         self.assertNotIn("Total", row)
 
     def test_cursor_status_suffix_hides_error(self) -> None:

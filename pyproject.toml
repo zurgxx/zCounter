@@ -4,5 +4,14 @@ version = "0.2.0"
 description = "Simple quota display CLI"
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+desktop = ["pywebview>=6,<7"]
+
 [project.scripts]
 zcounter = "zcounter.cli:main"
+
+[tool.setuptools.package-data]
+"zcounter.ui" = ["assets/*.html"]
+
+[tool.setuptools.packages.find]
+include = ["zcounter*"]

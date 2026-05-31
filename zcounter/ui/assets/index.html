@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter</title>
+  <style>
+    :root {
+      --bg: #f5f5f7; --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73;
+      --border: rgba(0, 0, 0, .06); --safe: #34c759; --warning: #ff9500;
+      --critical: #ff3b30; --safe-bg: rgba(52, 199, 89, .12);
+      --warning-bg: rgba(255, 149, 0, .12); --critical-bg: rgba(255, 59, 48, .12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; }
+    .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px var(--safe-bg); }
+    .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
+    .dot.critical { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-bg); }
+    .cards { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .provider { color: var(--secondary); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+    .account { margin-top: 2px; font-size: 15px; font-weight: 600; }
+    .plan { margin-top: 1px; color: var(--secondary); font-size: 12px; }
+    .pill { border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .pill.safe { background: var(--safe-bg); color: #248a3d; }
+    .pill.warning { background: var(--warning-bg); color: #b25000; }
+    .pill.critical { background: var(--critical-bg); color: #d70015; }
+    .metrics { display: flex; gap: 12px; }
+    .metric { flex: 1; min-width: 0; }
+    .metric-label, .reset { color: var(--secondary); font-size: 11px; }
+    .value { margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .safe { color: var(--safe); } .warning { color: var(--warning); } .critical { color: var(--critical); }
+    .bar { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: #e5e5ea; }
+    .fill { height: 100%; border-radius: 3px; background: currentColor; }
+    .reset { margin-top: 8px; font-size: 10px; }
+    .reset strong { display: block; margin-top: 1px; color: var(--text); font-size: 11px; font-weight: 500; }
+    .error, .empty { padding: 0 16px 12px; color: var(--secondary); font-size: 11px; }
+    .footer { border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
+    button { width: 100%; border: 0; padding: 11px; background: transparent; color: #007aff; cursor: pointer; font: inherit; font-size: 13px; }
+    button:hover { background: rgba(0, 0, 0, .04); } button:disabled { cursor: default; opacity: .5; }
+  </style>
+</head>
+<body>
+  <header class="header"><h1>zCounter</h1><span id="dot" class="dot" title="正常"></span></header>
+  <main id="cards" class="cards"><p class="empty">Loading...</p></main>
+  <footer class="footer"><button type="button" id="refresh">Refresh</button></footer>
+  <script>
+    const cards = document.getElementById("cards");
+    const dot = document.getElementById("dot");
+    const refreshButton = document.getElementById("refresh");
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    function metricHtml(metric) {
+      return `<div class="metric"><div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+        ${metric.reset === "-" ? "" : `<p class="reset">Reset<strong>${escapeHtml(metric.reset)}</strong></p>`}</div>`;
+    }
+    function cardHtml(account) {
+      const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";
+      return `<article class="card"><div class="card-top"><div>
+        <div class="provider">${escapeHtml(account.provider)}</div><div class="account">${escapeHtml(account.account)}</div>
+        <div class="plan">${escapeHtml(account.plan)}</div></div>
+        <span class="pill ${account.level}">${escapeHtml(account.status_label)}</span></div>
+        <div class="metrics">${account.metrics.map(metricHtml).join("")}</div>${error}</article>`;
+    }
+    function render(payload) {
+      if (payload.busy) return;
+      cards.innerHTML = payload.accounts.length ? payload.accounts.map(cardHtml).join("") : '<p class="empty">No accounts</p>';
+      const level = payload.critical_count ? "critical" : payload.warning_count ? "warning" : "safe";
+      dot.className = `dot ${level}`;
+      dot.title = payload.critical_count ? `${payload.critical_count}件 critical` : payload.warning_count ? `${payload.warning_count}件 warning` : "正常";
+    }
+    async function refresh() {
+      refreshButton.disabled = true; refreshButton.textContent = "...";
+      try { render(await window.pywebview.api.refresh()); }
+      finally { refreshButton.disabled = false; refreshButton.textContent = "Refresh"; }
+    }
+    refreshButton.addEventListener("click", refresh);
+    window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 60000); });
+  </script>
+</body>
+</html>

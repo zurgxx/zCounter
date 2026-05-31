@@ -10,17 +10,25 @@ python3 -m zcounter.cli --json
 python3 -m zcounter.ui
 ```
 
-### デスクトップ UI（v0.2）
+### デスクトップ UI（v0.3）
 
-`python3 -m zcounter.ui` で、小さな常時最前面ウィンドウを開きます。
+デスクトップ UI は `pywebview` を使います。Ubuntu / WSLg では初回のみ追加依存を
+インストールしてください。
 
-- 各アカウントを 1 行で表示（メールアドレス、主枠・副枠の残量 %、リセット時刻［ローカル］）
-- Codex は `5H` / `WK`、Cursor は `Total` / `Auto` として表示
-- 60 秒ごとに自動更新
-- 取得に失敗した行は、直前の成功値を残して `stale` または短いエラー表示にする
+```bash
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -e '.[desktop]'
+.venv/bin/python -m zcounter.ui
+```
 
-Linux では X11 / Wayland などのグラフィカル環境が必要です。macOS / Windows では通常の GUI 環境で動作します。  
-Tkinter を使うため、Linux では `python3-tk` などのパッケージが別途必要な場合があります。
+- 各アカウントをカードで表示（アカウント名、プラン、主枠・副枠の残量 %、リセット時刻）
+- 残量に応じて `Safe` / `Warning` / `Critical` を表示
+- `Refresh` ボタンと 60 秒ごとの自動更新
+- 取得に失敗した行は、直前の成功値を残して `Stale` または `Error` として表示
+
+Windows 11 の WSLg 上でも起動できます。Ubuntu 以外では、ディストリビューションに
+応じた GTK / WebKitGTK パッケージを追加してください。
 
 ## データの読み方（v0.2）
 
