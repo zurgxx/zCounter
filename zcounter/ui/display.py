@@ -67,9 +67,9 @@ def remaining_level(window: RateWindow | None) -> str:
     if window is None:
         return LEVEL_NORMAL
     remaining = window.remaining_percent
-    if remaining < 10:
-        return LEVEL_DANGER
     if remaining < 20:
+        return LEVEL_DANGER
+    if remaining < 40:
         return LEVEL_WARNING
     return LEVEL_NORMAL
 

@@ -99,9 +99,9 @@ def _metric_payload(label: str, window: RateWindow | None) -> dict[str, Any] | N
 
 
 def _remaining_level(remaining: float) -> str:
-    if remaining < 10:
-        return LEVEL_CRITICAL
     if remaining < 20:
+        return LEVEL_CRITICAL
+    if remaining < 40:
         return LEVEL_WARNING
     return LEVEL_SAFE
 

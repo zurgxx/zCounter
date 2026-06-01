@@ -45,14 +45,23 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(payload["accounts"][0]["status_label"], "Critical")
         self.assertEqual(payload["accounts"][0]["metrics"][0]["remaining_percent"], 9)
 
-    def test_warning_starts_below_twenty_percent(self) -> None:
+    def test_warning_starts_below_forty_percent(self) -> None:
         payload = build_payload(
-            [(_snapshot(remaining=19.9), STATUS_OK)],
+            [(_snapshot(remaining=39.9), STATUS_OK)],
             datetime(2026, 5, 31, tzinfo=timezone.utc),
         )
 
         self.assertEqual(payload["warning_count"], 1)
         self.assertEqual(payload["accounts"][0]["status_label"], "Warning")
+
+    def test_critical_starts_below_twenty_percent(self) -> None:
+        payload = build_payload(
+            [(_snapshot(remaining=19.9), STATUS_OK)],
+            datetime(2026, 5, 31, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(payload["critical_count"], 1)
+        self.assertEqual(payload["accounts"][0]["status_label"], "Critical")
 
     def test_store_reuses_single_provider_cache_for_error_without_account_id(self) -> None:
         store = SnapshotStore()
