@@ -60,7 +60,7 @@
       return `<div class="metric"><div class="metric-label">${escapeHtml(metric.label)}</div>
         <div class="value ${metric.level}">${metric.remaining_percent}%</div>
         <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
-        ${metric.reset === "-" ? "" : `<p class="reset">Reset<strong>${escapeHtml(metric.reset)}</strong></p>`}</div>`;
+        ${metric.pace && metric.pace !== "-" ? `<p class="reset">Pace<strong>${escapeHtml(metric.pace)}</strong></p>` : metric.reset === "-" ? "" : `<p class="reset">Reset<strong>${escapeHtml(metric.reset)}</strong></p>`}</div>`;
     }
     function cardHtml(account) {
       const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";

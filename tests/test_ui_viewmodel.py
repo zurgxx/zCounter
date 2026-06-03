@@ -8,6 +8,29 @@ from zcounter.ui.display import STATUS_OK, STATUS_STALE
 from zcounter.ui.viewmodel import SnapshotStore, build_payload
 
 
+def _cursor_snapshot(
+    *,
+    total_remaining: float = 62.0,
+    auto_remaining: float = 45.0,
+    reset_at: datetime | None = None,
+) -> QuotaSnapshot:
+    reset = reset_at or datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+    return QuotaSnapshot(
+        provider="cursor",
+        email="rock@example.com",
+        plan="Cursor Pro",
+        chatgpt_account_id=None,
+        five_hour=None,
+        weekly=None,
+        source="cursor-usage-summary",
+        updated_at=datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc),
+        primary=RateWindow(100.0 - total_remaining, total_remaining, reset, None),
+        secondary=RateWindow(100.0 - auto_remaining, auto_remaining, reset, None),
+        primary_label="Total",
+        secondary_label="Auto",
+    )
+
+
 def _snapshot(
     *,
     remaining: float = 50.0,
@@ -73,6 +96,26 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(status, STATUS_STALE)
         self.assertEqual(snapshot.email, "rock@example.com")
         self.assertEqual(snapshot.primary.remaining_percent, 54)
+
+    def test_cursor_secondary_shows_pace_instead_of_reset(self) -> None:
+        payload = build_payload(
+            [(_cursor_snapshot(), STATUS_OK)],
+            datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc),
+        )
+        metrics = payload["accounts"][0]["metrics"]
+        self.assertEqual(metrics[0]["reset"], "2026/6/28  9:36")
+        self.assertNotIn("pace", metrics[0])
+        self.assertEqual(metrics[1]["reset"], "-")
+        self.assertEqual(metrics[1]["pace"], "4.1%/d")
+
+    def test_codex_metrics_keep_reset_on_both(self) -> None:
+        payload = build_payload(
+            [(_snapshot(remaining=54), STATUS_OK)],
+            datetime(2026, 5, 31, tzinfo=timezone.utc),
+        )
+        metrics = payload["accounts"][0]["metrics"]
+        self.assertNotIn("pace", metrics[0])
+        self.assertNotIn("pace", metrics[1])
 
     def test_stale_rows_returns_cached_success(self) -> None:
         store = SnapshotStore()

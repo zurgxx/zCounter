@@ -122,6 +122,23 @@ def format_reset_time(window: RateWindow | None, now: datetime | None = None) ->
     return format_reset_at(window.reset_at, now)
 
 
+def format_daily_pace(window: RateWindow | None, now: datetime | None = None) -> str:
+    if window is None:
+        return "-"
+    reset_at = window.reset_at
+    if reset_at is None:
+        return "-"
+    current = _local_now(now)
+    local_reset = reset_at.astimezone()
+    if local_reset <= current:
+        return "now"
+    remaining_days = (local_reset - current).total_seconds() / 86400
+    if remaining_days <= 0:
+        return "now"
+    pace = window.remaining_percent / remaining_days
+    return f"{pace:.1f}%/d"
+
+
 def is_cursor(snapshot: QuotaSnapshot) -> bool:
     return snapshot.provider == "cursor"
 

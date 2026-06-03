@@ -11,7 +11,9 @@ from zcounter.ui.display import (
     account_key,
     display_primary,
     display_secondary,
+    format_daily_pace,
     format_reset_at,
+    is_cursor,
     merge_with_cache,
 )
 
@@ -53,7 +55,7 @@ def build_payload(
     rows: list[tuple[QuotaSnapshot, str]],
     updated_at: datetime,
 ) -> dict[str, Any]:
-    accounts = [_account_payload(snapshot, status) for snapshot, status in rows]
+    accounts = [_account_payload(snapshot, status, updated_at) for snapshot, status in rows]
     return {
         "accounts": accounts,
         "critical_count": sum(account["level"] == LEVEL_CRITICAL for account in accounts),
@@ -62,14 +64,27 @@ def build_payload(
     }
 
 
-def _account_payload(snapshot: QuotaSnapshot, status: str) -> dict[str, Any]:
+def _account_payload(
+    snapshot: QuotaSnapshot,
+    status: str,
+    now: datetime,
+) -> dict[str, Any]:
     primary = display_primary(snapshot)
     secondary = display_secondary(snapshot)
-    metrics = [
-        _metric_payload(snapshot.primary_label or "Primary", primary),
-        _metric_payload(snapshot.secondary_label or "Secondary", secondary),
-    ]
-    metrics = [metric for metric in metrics if metric is not None]
+    metrics: list[dict[str, Any]] = []
+    primary_metric = _metric_payload(snapshot.primary_label or "Primary", primary, now)
+    if primary_metric is not None:
+        metrics.append(primary_metric)
+    secondary_metric = _metric_payload(
+        snapshot.secondary_label or "Secondary",
+        secondary,
+        now,
+    )
+    if secondary_metric is not None:
+        if is_cursor(snapshot):
+            secondary_metric["reset"] = "-"
+            secondary_metric["pace"] = format_daily_pace(primary, now)
+        metrics.append(secondary_metric)
     level = _worst_level([metric["level"] for metric in metrics])
     if status == STATUS_ERROR:
         level = LEVEL_CRITICAL
@@ -86,7 +101,11 @@ def _account_payload(snapshot: QuotaSnapshot, status: str) -> dict[str, Any]:
     }
 
 
-def _metric_payload(label: str, window: RateWindow | None) -> dict[str, Any] | None:
+def _metric_payload(
+    label: str,
+    window: RateWindow | None,
+    now: datetime,
+) -> dict[str, Any] | None:
     if window is None:
         return None
     remaining = max(0.0, min(100.0, window.remaining_percent))
@@ -94,7 +113,7 @@ def _metric_payload(label: str, window: RateWindow | None) -> dict[str, Any] | N
         "label": label,
         "remaining_percent": round(remaining),
         "level": _remaining_level(remaining),
-        "reset": format_reset_at(window.reset_at),
+        "reset": format_reset_at(window.reset_at, now),
     }
 
 

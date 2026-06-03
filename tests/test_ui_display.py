@@ -7,6 +7,7 @@ from zcounter.models import QuotaSnapshot, RateWindow
 from zcounter.ui.display import (
     format_account_row,
     format_cursor_row,
+    format_daily_pace,
     format_status_suffix,
     format_updated_at_jst,
     format_updated_footer,
@@ -27,6 +28,18 @@ class UIDisplayTests(unittest.TestCase):
             format_updated_footer(updated),
             "updated 2026/5/29 16:04:40 JST : refresh 60s",
         )
+
+    def test_format_daily_pace(self) -> None:
+        reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc)
+        window = RateWindow(38.0, 62.0, reset_at, None)
+        self.assertEqual(format_daily_pace(window, now), "4.1%/d")
+
+    def test_format_daily_pace_returns_now_after_reset(self) -> None:
+        reset_at = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
+        window = RateWindow(0.0, 0.0, reset_at, None)
+        self.assertEqual(format_daily_pace(window, now), "now")
 
     def test_format_cursor_row(self) -> None:
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc).astimezone()
