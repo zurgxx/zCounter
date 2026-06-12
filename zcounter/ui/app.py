@@ -5,7 +5,7 @@ from pathlib import Path
 from zcounter.ui.webview_api import WebviewAPI
 
 WINDOW_WIDTH = 364
-WINDOW_HEIGHT = 720
+WINDOW_HEIGHT = 860
 
 
 def run() -> None:

@@ -3,41 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>zCounter</title>
+  <title>zCounter Mock — 20260612_1</title>
   <style>
     :root {
       --bg: #f5f5f7; --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73;
       --border: rgba(0, 0, 0, .06); --safe: #34c759; --warning: #ff9500;
       --critical: #ff3b30; --safe-bg: rgba(52, 199, 89, .12);
       --warning-bg: rgba(255, 149, 0, .12); --critical-bg: rgba(255, 59, 48, .12);
+      --preview-bg: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      --window-w: 364px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-    body {
+    body.preview {
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      background: var(--bg);
-      color: var(--text);
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      background: var(--preview-bg);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    .header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; }
+    .preview-label {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      color: #6e6e73;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .window {
+      width: var(--window-w);
+      min-height: 720px;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .06);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; }
     .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px var(--safe-bg); }
     .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
     .dot.critical { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-bg); }
-    .cards {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 0 12px 12px;
-      overflow-y: auto;
-    }
+    .cards { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
     .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
     .provider { color: var(--secondary); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
@@ -57,16 +68,83 @@
     .reset { margin-top: 8px; font-size: 10px; }
     .reset strong { display: block; margin-top: 1px; color: var(--text); font-size: 11px; font-weight: 500; }
     .error, .empty { padding: 0 16px 12px; color: var(--secondary); font-size: 11px; }
-    .footer { flex-shrink: 0; border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
+    .footer { border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
     button { width: 100%; border: 0; padding: 11px; background: transparent; color: #007aff; cursor: pointer; font: inherit; font-size: 13px; }
     button:hover { background: rgba(0, 0, 0, .04); } button:disabled { cursor: default; opacity: .5; }
   </style>
 </head>
-<body>
-  <header class="header"><h1>zCounter</h1><span id="dot" class="dot" title="正常"></span></header>
-  <main id="cards" class="cards"><p class="empty">Loading...</p></main>
-  <footer class="footer"><button type="button" id="refresh">Refresh</button></footer>
+<body class="preview">
+  <p class="preview-label">Mock 20260612_1 — production mirror</p>
+  <div class="window">
+    <header class="header"><h1>zCounter</h1><span id="dot" class="dot" title="正常"></span></header>
+    <main id="cards" class="cards"><p class="empty">Loading...</p></main>
+    <footer class="footer"><button type="button" id="refresh">Refresh</button></footer>
+  </div>
   <script>
+    const MOCK_PAYLOAD = {
+      accounts: [
+        {
+          provider: "Codex",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 87, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+        {
+          provider: "Codex",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 89, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+        {
+          provider: "Cursor",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Cursor Pro",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "Total", remaining_percent: 61, level: "safe", reset: "2026/6/28  9:36" },
+            { label: "Auto", remaining_percent: 49, level: "safe", reset: "-", pace: "3.8%/d" },
+          ],
+        },
+        {
+          provider: "Claude",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Pro",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 98, level: "safe", reset: "13:59" },
+            { label: "WK", remaining_percent: 100, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+      ],
+      critical_count: 0,
+      warning_count: 0,
+      updated_at: "2026-06-12T09:36:00+09:00",
+    };
+
     const cards = document.getElementById("cards");
     const dot = document.getElementById("dot");
     const refreshButton = document.getElementById("refresh");
@@ -92,13 +170,17 @@
       dot.className = `dot ${level}`;
       dot.title = payload.critical_count ? `${payload.critical_count}件 critical` : payload.warning_count ? `${payload.warning_count}件 warning` : "正常";
     }
-    async function refresh() {
-      refreshButton.disabled = true; refreshButton.textContent = "...";
-      try { render(await window.pywebview.api.refresh()); }
-      finally { refreshButton.disabled = false; refreshButton.textContent = "Refresh"; }
+    function refresh() {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "...";
+      window.setTimeout(() => {
+        render(MOCK_PAYLOAD);
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Refresh";
+      }, 150);
     }
     refreshButton.addEventListener("click", refresh);
-    window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 60000); });
+    render(MOCK_PAYLOAD);
   </script>
 </body>
 </html>

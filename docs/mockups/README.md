@@ -1,8 +1,25 @@
 # zCounter UI モック（デザイン検討用）
 
-静的 HTML の 4 案。実装用ではなく、Mac メニューバーポップオーバー風の見た目比較が目的です。
+静的 HTML。ブラウザで開いて UI を試し、OK なら `zcounter/ui/assets/index.html` に反映する。
 
-## ファイル
+## 現行 UI ベース（日付版）
+
+| ファイル | 内容 |
+|----------|------|
+| [zcounter-mock-20260612_1.html](./zcounter-mock-20260612_1.html) | 本番 UI 写し（codex ×2 / cursor / claude、fixture データ） |
+
+```bash
+xdg-open docs/mockups/zcounter-mock-20260612_1.html   # Linux
+open docs/mockups/zcounter-mock-20260612_1.html       # macOS
+```
+
+**運用**: CSS / カード HTML を mock で編集 → 問題なければ本番 `index.html` へコピー。データ形を変えるときだけ `viewmodel.py` も更新。
+
+新しい案を試すときは `zcounter-mock-YYYYMMDD_N.html` で追加する。
+
+## 初期デザイン案（2025）
+
+Mac メニューバーポップオーバー風の見た目比較用。Claude 行なし。
 
 | ファイル | 方向性 |
 |----------|--------|
@@ -44,7 +61,7 @@ open docs/mockups/zcounter-mock-01.html       # macOS
 
 ## 共通仕様
 
-- 対象: Codex / zurgxx、Codex / rock、Cursor / rock（Claude なし）
+- 対象: Codex / zurgxx、Codex / rock、Cursor / rock（Claude なし。20260612_1 以降は Claude あり）
 - テーマ: ライト、角丸、余白多め（案4のみややタイト）
 - 色: safe=緑、warning=オレンジ、critical=赤（残量 % に応じて表示）
 - フッター: Settings / Refresh（案4 は Quit 追加）
