@@ -7,6 +7,7 @@
 | ファイル | 内容 |
 |----------|------|
 | [zcounter-mock-20260612_1.html](./zcounter-mock-20260612_1.html) | 本番 UI 写し（codex ×2 / cursor / claude、fixture データ） |
+| [zcounter-mock-20260612_2.html](./zcounter-mock-20260612_2.html) | 20260612_1 + フッターに最終更新時刻と次回更新までの秒カウントダウン |
 
 ```bash
 xdg-open docs/mockups/zcounter-mock-20260612_1.html   # Linux
