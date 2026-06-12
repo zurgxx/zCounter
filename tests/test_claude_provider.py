@@ -75,11 +75,11 @@ class ClaudeProviderTests(unittest.TestCase):
         self.assertEqual(row[5], "WK 60%")
         self.assertEqual(row[6], "40%")
 
-    def test_utilization_fraction_098_becomes_98_percent(self) -> None:
+    def test_utilization_one_means_one_percent_not_full(self) -> None:
         snapshot = normalize_claude_snapshot(
             {
-                "five_hour": {"utilization": 0.98, "resets_at": "2026-06-12T04:59:59+00:00"},
-                "seven_day": {"utilization": 0.0, "resets_at": "2026-06-16T12:59:59+00:00"},
+                "five_hour": {"utilization": 11.0, "resets_at": "2026-06-12T04:59:59+00:00"},
+                "seven_day": {"utilization": 1.0, "resets_at": "2026-06-16T12:59:59+00:00"},
             },
             None,
             ClaudeAuth(
@@ -91,8 +91,11 @@ class ClaudeProviderTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(snapshot.primary)
-        self.assertEqual(snapshot.primary.used_percent, 98.0)
-        self.assertEqual(snapshot.primary.remaining_percent, 2.0)
+        self.assertEqual(snapshot.primary.used_percent, 11.0)
+        self.assertEqual(snapshot.primary.remaining_percent, 89.0)
+        self.assertIsNotNone(snapshot.secondary)
+        self.assertEqual(snapshot.secondary.used_percent, 1.0)
+        self.assertEqual(snapshot.secondary.remaining_percent, 99.0)
 
     def test_utilization_whole_number_98_stays_98_percent(self) -> None:
         snapshot = normalize_claude_snapshot(
@@ -141,11 +144,11 @@ class ClaudeProviderTests(unittest.TestCase):
                 auth,
             )
 
-    def test_claude_fractional_utilization_is_normalized_to_percent(self) -> None:
+    def test_claude_whole_number_utilization_is_used_directly(self) -> None:
         snapshot = normalize_claude_snapshot(
             {
-                "five_hour": {"utilization": 0.2, "resets_at": "2026-06-12T04:59:59+00:00"},
-                "seven_day": {"utilization": 0.4, "resets_at": "2026-06-16T12:59:59+00:00"},
+                "five_hour": {"utilization": 20.0, "resets_at": "2026-06-12T04:59:59+00:00"},
+                "seven_day": {"utilization": 40.0, "resets_at": "2026-06-16T12:59:59+00:00"},
             },
             None,
             ClaudeAuth(

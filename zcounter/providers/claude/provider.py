@@ -119,9 +119,8 @@ def _utilization_percent(value: Any) -> float | None:
     raw = float(value)
     if raw < 0:
         return 0.0
-    # Anthropic returns either a 0-1 fraction or a 0-100 percentage.
-    percent = raw * 100.0 if raw <= 1.0 else raw
-    return max(0.0, min(100.0, percent))
+    # Claude OAuth usage returns utilization on a 0-100 percent scale (CodexBar parity).
+    return max(0.0, min(100.0, raw))
 
 
 def _profile_email(profile: dict[str, Any] | None) -> str | None:
