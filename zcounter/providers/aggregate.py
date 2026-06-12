@@ -6,10 +6,10 @@ from zcounter.providers.codex.provider import fetch_codex_quotas
 from zcounter.providers.cursor.provider import fetch_cursor_quota_if_configured
 
 
-def fetch_all_quotas() -> list[QuotaSnapshot]:
+def fetch_all_quotas(*, user_initiated: bool = False) -> list[QuotaSnapshot]:
     snapshots = list(fetch_codex_quotas())
     cursor_snapshot = fetch_cursor_quota_if_configured()
     if cursor_snapshot is not None:
         snapshots.append(cursor_snapshot)
-    snapshots.append(fetch_claude_quota())
+    snapshots.append(fetch_claude_quota(user_initiated=user_initiated))
     return snapshots

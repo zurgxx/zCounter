@@ -4,10 +4,10 @@ from typing import Any
 
 from zcounter.models import QuotaSnapshot, RateWindow, parse_iso_datetime, utc_now
 from zcounter.providers.claude.auth import ClaudeAuth, ClaudeAuthError, load_claude_auth
+from zcounter.providers.claude.profile_cache import load_profile_cache, save_profile_cache
 from zcounter.providers.claude.usage_api import (
     ClaudeAPIError,
-    ClaudeShapeError,
-    ClaudeUnauthorizedError,
+    ClaudeRateLimitedError,
     fetch_profile,
     fetch_usage,
 )
@@ -17,7 +17,7 @@ class ClaudeUsageShapeError(Exception):
     pass
 
 
-def fetch_claude_quota() -> QuotaSnapshot:
+def fetch_claude_quota(*, user_initiated: bool = False) -> QuotaSnapshot:
     try:
         auth = load_claude_auth()
     except ClaudeAuthError as exc:
@@ -27,15 +27,13 @@ def fetch_claude_quota() -> QuotaSnapshot:
         return _error_snapshot("claude credentials have no access token")
 
     try:
-        usage = fetch_usage(auth.access_token)
+        usage = fetch_usage(auth.access_token, user_initiated=user_initiated)
+    except ClaudeRateLimitedError as exc:
+        return _error_snapshot(str(exc))
     except ClaudeAPIError as exc:
         return _error_snapshot(str(exc))
 
-    profile: dict[str, Any] | None
-    try:
-        profile = fetch_profile(auth.access_token)
-    except ClaudeAPIError:
-        profile = None
+    profile = _load_profile(auth, user_initiated=user_initiated)
 
     try:
         return normalize_claude_snapshot(usage, profile, auth)
@@ -43,6 +41,31 @@ def fetch_claude_quota() -> QuotaSnapshot:
         return _error_snapshot(str(exc))
     except Exception:
         return _error_snapshot("unexpected claude fetch error")
+
+
+def _load_profile(auth: ClaudeAuth, *, user_initiated: bool) -> dict[str, Any] | None:
+    cached = load_profile_cache()
+    if cached.email or cached.provider_account_id:
+        account: dict[str, Any] = {}
+        if cached.email:
+            account["email"] = cached.email
+        if cached.provider_account_id:
+            account["uuid"] = cached.provider_account_id
+        return {"account": account}
+
+    if not user_initiated:
+        return None
+
+    try:
+        profile = fetch_profile(auth.access_token, user_initiated=True)
+    except ClaudeAPIError:
+        return None
+
+    email = _profile_email(profile)
+    account_id = _profile_account_id(profile)
+    if email or account_id:
+        save_profile_cache(email, account_id)
+    return profile
 
 
 def normalize_claude_snapshot(
@@ -139,6 +162,22 @@ def _claude_plan_label(profile: dict[str, Any] | None, auth: ClaudeAuth) -> str 
 
     if auth.subscription_type:
         return _title_plan(auth.subscription_type)
+    return _plan_from_rate_limit_tier(auth.rate_limit_tier)
+
+
+def _plan_from_rate_limit_tier(rate_limit_tier: str | None) -> str | None:
+    tier = (rate_limit_tier or "").strip().lower()
+    if not tier:
+        return None
+    for keyword, label in (
+        ("max", "Max"),
+        ("pro", "Pro"),
+        ("team", "Team"),
+        ("enterprise", "Enterprise"),
+        ("ultra", "Ultra"),
+    ):
+        if keyword in tier:
+            return label
     return None
 
 

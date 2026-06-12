@@ -13,12 +13,12 @@ class WebviewAPI:
         self._store = SnapshotStore()
         self._lock = threading.Lock()
 
-    def refresh(self) -> dict[str, Any]:
+    def refresh(self, user_initiated: bool = False) -> dict[str, Any]:
         if not self._lock.acquire(blocking=False):
             return {"busy": True}
         try:
             try:
-                rows = self._store.merge(fetch_all_quotas())
+                rows = self._store.merge(fetch_all_quotas(user_initiated=user_initiated))
             except Exception:
                 rows = self._store.stale_rows()
             payload = build_payload(rows, utc_now())

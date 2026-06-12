@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import tempfile
 import unittest
@@ -11,10 +12,13 @@ from zcounter.cli import _row
 from zcounter.providers.claude import provider, usage_api
 from zcounter.providers.claude.auth import ClaudeAuth
 from zcounter.providers.claude.provider import ClaudeUsageShapeError, normalize_claude_snapshot
+from zcounter.providers.claude import rate_limit_gate
 from zcounter.providers.claude.usage_api import (
     ClaudeAPIError,
+    ClaudeRateLimitedError,
     ClaudeShapeError,
     ClaudeUnauthorizedError,
+    RATE_LIMIT_MESSAGE,
     fetch_usage,
 )
 from zcounter.providers.aggregate import fetch_all_quotas
@@ -174,7 +178,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         self.assertEqual(snapshot.plan, "Max")
 
-    def test_claude_profile_failure_still_returns_usage_snapshot(self) -> None:
+    def test_auto_refresh_skips_profile_and_uses_credentials_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             creds = Path(tmp) / ".credentials.json"
             creds.write_text(
@@ -197,18 +201,63 @@ class ClaudeProviderTests(unittest.TestCase):
                         "seven_day": {"utilization": 3.0, "resets_at": "2026-06-16T12:59:59+00:00"},
                     },
                 ):
-                    with mock.patch.object(
-                        provider,
-                        "fetch_profile",
-                        side_effect=ClaudeAPIError("claude API request failed"),
-                    ):
-                        snapshot = provider.fetch_claude_quota()
+                    with mock.patch.object(provider, "fetch_profile") as fetch_profile_mock:
+                        snapshot = provider.fetch_claude_quota(user_initiated=False)
 
+        fetch_profile_mock.assert_not_called()
         self.assertIsNone(snapshot.error)
         self.assertIsNone(snapshot.email)
         self.assertEqual(snapshot.plan, "Pro")
         self.assertIsNotNone(snapshot.primary)
         self.assertEqual(snapshot.primary.used_percent, 12.0)
+
+    def test_user_refresh_fetches_profile_when_cache_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            creds = Path(tmp) / ".credentials.json"
+            creds.write_text(
+                json.dumps(
+                    {
+                        "claudeAiOauth": {
+                            "accessToken": "redacted",
+                            "subscriptionType": "pro",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            profile_cache = Path(tmp) / "profile-cache.json"
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CLAUDE_CONFIG_DIR": tmp,
+                    "ZCOUNTER_CLAUDE_PROFILE_CACHE": str(profile_cache),
+                },
+                clear=False,
+            ):
+                with mock.patch.object(
+                    provider,
+                    "fetch_usage",
+                    return_value={
+                        "five_hour": {"utilization": 12.0, "resets_at": "2026-06-12T04:59:59+00:00"},
+                        "seven_day": {"utilization": 3.0, "resets_at": "2026-06-16T12:59:59+00:00"},
+                    },
+                ):
+                    with mock.patch.object(
+                        provider,
+                        "fetch_profile",
+                        return_value={
+                            "account": {
+                                "email": "user@example.com",
+                                "uuid": "449a2cf0-5d3c-4d29-8fb6-13ad4c798f77",
+                            }
+                        },
+                    ) as fetch_profile_mock:
+                        snapshot = provider.fetch_claude_quota(user_initiated=True)
+
+        fetch_profile_mock.assert_called_once()
+        self.assertIsNone(snapshot.error)
+        self.assertEqual(snapshot.email, "user@example.com")
+        self.assertEqual(snapshot.plan, "Pro")
 
     def test_malformed_credentials_json_returns_error_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -347,10 +396,102 @@ class ClaudeProviderTests(unittest.TestCase):
             )
             with mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": tmp}, clear=False):
                 with mock.patch.object(provider, "fetch_usage", return_value={}):
-                    with mock.patch.object(provider, "fetch_profile", return_value={}):
-                        snapshot = provider.fetch_claude_quota()
+                    snapshot = provider.fetch_claude_quota()
 
         self.assertIn("no usable quota", snapshot.error)
+
+    def test_http_429_records_cooldown_and_returns_actionable_message(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "rate-limit.json"
+            creds = Path(tmp) / ".credentials.json"
+            creds.write_text(
+                json.dumps({"claudeAiOauth": {"accessToken": "redacted"}}),
+                encoding="utf-8",
+            )
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CLAUDE_CONFIG_DIR": tmp,
+                    "ZCOUNTER_CLAUDE_RATE_LIMIT_STATE": str(state_path),
+                },
+                clear=False,
+            ):
+                rate_limit_gate.clear()
+
+                def fail(*args, **kwargs):
+                    raise urllib.error.HTTPError(
+                        usage_api.USAGE_URL,
+                        429,
+                        "too many requests",
+                        hdrs={"Retry-After": "120"},
+                        fp=None,
+                    )
+
+                with mock.patch.object(usage_api.urllib.request, "urlopen", side_effect=fail):
+                    snapshot = provider.fetch_claude_quota(user_initiated=True)
+
+                self.assertEqual(snapshot.error, RATE_LIMIT_MESSAGE)
+                self.assertIsNotNone(rate_limit_gate.current_blocked_until())
+
+    def test_rate_limit_gate_blocks_background_refresh_without_http_call(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "rate-limit.json"
+            creds = Path(tmp) / ".credentials.json"
+            creds.write_text(
+                json.dumps({"claudeAiOauth": {"accessToken": "redacted"}}),
+                encoding="utf-8",
+            )
+            now = datetime.datetime(2026, 6, 12, 12, 0, tzinfo=datetime.timezone.utc)
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CLAUDE_CONFIG_DIR": tmp,
+                    "ZCOUNTER_CLAUDE_RATE_LIMIT_STATE": str(state_path),
+                },
+                clear=False,
+            ):
+                rate_limit_gate.record_rate_limit(
+                    now + datetime.timedelta(minutes=5),
+                    now=now,
+                )
+                with mock.patch.object(usage_api.urllib.request, "urlopen") as urlopen_mock:
+                    snapshot = provider.fetch_claude_quota(user_initiated=False)
+
+        urlopen_mock.assert_not_called()
+        self.assertEqual(snapshot.error, RATE_LIMIT_MESSAGE)
+
+    def test_rate_limit_gate_allows_user_refresh_during_cooldown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "rate-limit.json"
+            creds = Path(tmp) / ".credentials.json"
+            creds.write_text(
+                json.dumps({"claudeAiOauth": {"accessToken": "redacted"}}),
+                encoding="utf-8",
+            )
+            now = datetime.datetime(2026, 6, 12, 12, 0, tzinfo=datetime.timezone.utc)
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CLAUDE_CONFIG_DIR": tmp,
+                    "ZCOUNTER_CLAUDE_RATE_LIMIT_STATE": str(state_path),
+                },
+                clear=False,
+            ):
+                rate_limit_gate.record_rate_limit(
+                    now + datetime.timedelta(minutes=5),
+                    now=now,
+                )
+                with mock.patch.object(
+                    provider,
+                    "fetch_usage",
+                    return_value={
+                        "five_hour": {"utilization": 1.0, "resets_at": "2026-06-12T04:59:59+00:00"},
+                    },
+                ) as fetch_usage_mock:
+                    snapshot = provider.fetch_claude_quota(user_initiated=True)
+
+        fetch_usage_mock.assert_called_once()
+        self.assertIsNone(snapshot.error)
 
 
 if __name__ == "__main__":

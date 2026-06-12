@@ -92,13 +92,16 @@
       dot.className = `dot ${level}`;
       dot.title = payload.critical_count ? `${payload.critical_count}件 critical` : payload.warning_count ? `${payload.warning_count}件 warning` : "正常";
     }
-    async function refresh() {
+    async function refresh(userInitiated = false) {
       refreshButton.disabled = true; refreshButton.textContent = "...";
-      try { render(await window.pywebview.api.refresh()); }
+      try { render(await window.pywebview.api.refresh(userInitiated)); }
       finally { refreshButton.disabled = false; refreshButton.textContent = "Refresh"; }
     }
-    refreshButton.addEventListener("click", refresh);
-    window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 60000); });
+    refreshButton.addEventListener("click", () => refresh(true));
+    window.addEventListener("pywebviewready", () => {
+      refresh();
+      setInterval(() => refresh(false), 300000);
+    });
   </script>
 </body>
 </html>

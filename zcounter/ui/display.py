@@ -17,7 +17,7 @@ STATUS_ERROR = "error"
 
 EMAIL_WIDTH = 20
 CURSOR_QUOTA_WIDTH = 38
-REFRESH_SECONDS = 60
+REFRESH_SECONDS = 300
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
@@ -88,7 +88,7 @@ def format_updated_at_jst(value: datetime) -> str:
     )
 
 
-def format_updated_footer(updated_at: datetime, refresh_seconds: int = 60) -> str:
+def format_updated_footer(updated_at: datetime, refresh_seconds: int = REFRESH_SECONDS) -> str:
     stamp = format_updated_at_jst(updated_at)
     return f"updated {stamp} : refresh {refresh_seconds}s"
 

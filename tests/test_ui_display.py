@@ -26,7 +26,7 @@ class UIDisplayTests(unittest.TestCase):
         updated = datetime(2026, 5, 29, 7, 4, 40, tzinfo=timezone.utc)
         self.assertEqual(
             format_updated_footer(updated),
-            "updated 2026/5/29 16:04:40 JST : refresh 60s",
+            "updated 2026/5/29 16:04:40 JST : refresh 300s",
         )
 
     def test_format_daily_pace(self) -> None:

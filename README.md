@@ -24,7 +24,7 @@ python3 -m venv --system-site-packages .venv
 
 - 各アカウントをカードで表示（アカウント名、プラン、主枠・副枠の残量 %、リセット時刻）
 - 残量に応じて `Safe` / `Warning` / `Critical` を表示
-- `Refresh` ボタンと 60 秒ごとの自動更新
+- `Refresh` ボタンと 5 分ごとの自動更新（Claude OAuth API のレート制限を避けるため CodexBar と同じ間隔）
 - 取得に失敗した行は、直前の成功値を残して `Stale` または `Error` として表示
 
 Windows 11 の WSLg 上でも起動できます。Ubuntu 以外では、ディストリビューションに
