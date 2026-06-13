@@ -9,6 +9,7 @@ from zcounter.ui.display import (
     STATUS_OK,
     STATUS_STALE,
     account_key,
+    daily_pace_per_day,
     display_primary,
     display_secondary,
     format_daily_pace,
@@ -20,6 +21,9 @@ from zcounter.ui.display import (
 LEVEL_SAFE = "safe"
 LEVEL_WARNING = "warning"
 LEVEL_CRITICAL = "critical"
+
+CURSOR_PACE_WARNING = 3.0
+CURSOR_PACE_CRITICAL = 1.0
 
 
 class SnapshotStore:
@@ -72,20 +76,29 @@ def _account_payload(
     primary = display_primary(snapshot)
     secondary = display_secondary(snapshot)
     metrics: list[dict[str, Any]] = []
-    primary_metric = _metric_payload(snapshot.primary_label or "Primary", primary, now)
+    cursor = is_cursor(snapshot)
+    cursor_pace_level = (
+        _cursor_pace_level(daily_pace_per_day(primary, now)) if cursor else None
+    )
+    primary_metric = _metric_payload(snapshot.primary_label or "Primary", primary, now, cursor=cursor)
     if primary_metric is not None:
         metrics.append(primary_metric)
     secondary_metric = _metric_payload(
         snapshot.secondary_label or "Secondary",
         secondary,
         now,
+        cursor=cursor,
     )
     if secondary_metric is not None:
-        if is_cursor(snapshot):
+        if cursor:
             secondary_metric["reset"] = "-"
             secondary_metric["pace"] = format_daily_pace(primary, now)
+            secondary_metric["pace_level"] = cursor_pace_level
         metrics.append(secondary_metric)
-    level = _worst_level([metric["level"] for metric in metrics])
+    if cursor:
+        level = cursor_pace_level or LEVEL_SAFE
+    else:
+        level = _worst_level([metric["level"] for metric in metrics])
     if status == STATUS_ERROR:
         level = LEVEL_CRITICAL
     return {
@@ -105,16 +118,29 @@ def _metric_payload(
     label: str,
     window: RateWindow | None,
     now: datetime,
+    *,
+    cursor: bool = False,
 ) -> dict[str, Any] | None:
     if window is None:
         return None
     remaining = max(0.0, min(100.0, window.remaining_percent))
+    level = LEVEL_SAFE if cursor else _remaining_level(remaining)
     return {
         "label": label,
         "remaining_percent": round(remaining),
-        "level": _remaining_level(remaining),
+        "level": level,
         "reset": format_reset_at(window.reset_at, now),
     }
+
+
+def _cursor_pace_level(pace: float | None) -> str:
+    if pace is None:
+        return LEVEL_SAFE
+    if pace < CURSOR_PACE_CRITICAL:
+        return LEVEL_CRITICAL
+    if pace < CURSOR_PACE_WARNING:
+        return LEVEL_WARNING
+    return LEVEL_SAFE
 
 
 def _remaining_level(remaining: float) -> str:

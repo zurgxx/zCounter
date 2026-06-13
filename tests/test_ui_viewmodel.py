@@ -105,8 +105,52 @@ class UIViewModelTests(unittest.TestCase):
         metrics = payload["accounts"][0]["metrics"]
         self.assertEqual(metrics[0]["reset"], "2026/6/28  9:36")
         self.assertNotIn("pace", metrics[0])
+        self.assertEqual(metrics[0]["level"], "safe")
         self.assertEqual(metrics[1]["reset"], "-")
         self.assertEqual(metrics[1]["pace"], "4.1%/d")
+        self.assertEqual(metrics[1]["pace_level"], "safe")
+        self.assertEqual(metrics[1]["level"], "safe")
+
+    def test_cursor_uses_pace_for_warning_and_critical(self) -> None:
+        reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc)
+        warning_payload = build_payload(
+            [(_cursor_snapshot(total_remaining=42.0, auto_remaining=25.0, reset_at=reset_at), STATUS_OK)],
+            now,
+        )
+        warning_account = warning_payload["accounts"][0]
+        self.assertEqual(warning_account["level"], "warning")
+        self.assertEqual(warning_account["status_label"], "Warning")
+        self.assertEqual(warning_payload["warning_count"], 1)
+        self.assertEqual(warning_account["metrics"][0]["level"], "safe")
+        self.assertEqual(warning_account["metrics"][1]["level"], "safe")
+        self.assertEqual(warning_account["metrics"][1]["pace_level"], "warning")
+
+        critical_payload = build_payload(
+            [(_cursor_snapshot(total_remaining=10.0, auto_remaining=8.0, reset_at=reset_at), STATUS_OK)],
+            now,
+        )
+        critical_account = critical_payload["accounts"][0]
+        self.assertEqual(critical_account["level"], "critical")
+        self.assertEqual(critical_account["status_label"], "Critical")
+        self.assertEqual(critical_payload["critical_count"], 1)
+        self.assertEqual(critical_account["metrics"][0]["level"], "safe")
+        self.assertEqual(critical_account["metrics"][1]["level"], "safe")
+        self.assertEqual(critical_account["metrics"][1]["pace_level"], "critical")
+
+    def test_cursor_metrics_stay_safe_when_only_auto_pace_would_warn(self) -> None:
+        reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc)
+        payload = build_payload(
+            [(_cursor_snapshot(total_remaining=62.0, auto_remaining=39.0, reset_at=reset_at), STATUS_OK)],
+            now,
+        )
+        account = payload["accounts"][0]
+        self.assertEqual(account["level"], "safe")
+        self.assertEqual(account["metrics"][0]["level"], "safe")
+        self.assertEqual(account["metrics"][1]["level"], "safe")
+        self.assertEqual(account["metrics"][1]["pace_level"], "safe")
+        self.assertEqual(account["metrics"][1]["pace"], "4.1%/d")
 
     def test_codex_metrics_keep_reset_on_both(self) -> None:
         payload = build_payload(
