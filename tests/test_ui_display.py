@@ -20,13 +20,13 @@ from zcounter.ui.display import (
 class UIDisplayTests(unittest.TestCase):
     def test_format_updated_at_jst_from_utc(self) -> None:
         updated = datetime(2026, 5, 29, 7, 4, 40, 925803, tzinfo=timezone.utc)
-        self.assertEqual(format_updated_at_jst(updated), "2026/5/29 16:04:40 JST")
+        self.assertEqual(format_updated_at_jst(updated), "2026/5/29(金) 16:04:40 JST")
 
     def test_format_updated_footer(self) -> None:
         updated = datetime(2026, 5, 29, 7, 4, 40, tzinfo=timezone.utc)
         self.assertEqual(
             format_updated_footer(updated),
-            "updated 2026/5/29 16:04:40 JST : refresh 300s",
+            "updated 2026/5/29(金) 16:04:40 JST : refresh 300s",
         )
 
     def test_format_daily_pace(self) -> None:

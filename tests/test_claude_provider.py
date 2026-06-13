@@ -58,7 +58,7 @@ class ClaudeProviderTests(unittest.TestCase):
         self.assertEqual(snapshot.email, "user@example.com")
         self.assertEqual(snapshot.plan, "Pro")
         self.assertEqual(snapshot.primary_label, "5H")
-        self.assertEqual(snapshot.secondary_label, "WK")
+        self.assertEqual(snapshot.secondary_label, "WEEK")
         self.assertEqual(snapshot.source, "claude-usage")
         self.assertIsNotNone(snapshot.primary)
         self.assertEqual(snapshot.primary.used_percent, 20.0)
@@ -72,7 +72,7 @@ class ClaudeProviderTests(unittest.TestCase):
         row = _row(snapshot)
         self.assertEqual(row[3], "5H 80%")
         self.assertEqual(row[4], "20%")
-        self.assertEqual(row[5], "WK 60%")
+        self.assertEqual(row[5], "WEEK 60%")
         self.assertEqual(row[6], "40%")
 
     def test_utilization_one_means_one_percent_not_full(self) -> None:

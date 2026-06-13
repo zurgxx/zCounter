@@ -116,7 +116,7 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["sub_metrics"][0]["remaining_percent"], 45)
         self.assertEqual(cursor["sub_metrics"][1]["label"], "API")
         self.assertEqual(cursor["sub_metrics"][1]["remaining_percent"], 99)
-        self.assertEqual(cursor["footer"]["reset"], "2026/6/28  9:36")
+        self.assertEqual(cursor["footer"]["reset"], "2026/6/28(日) 9:36")
         self.assertEqual(cursor["footer"]["pace"], "4.1%/d")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
 

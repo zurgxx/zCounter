@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from zcounter.models import QuotaSnapshot, RateWindow, utc_now
 
 JST = ZoneInfo("Asia/Tokyo")
+_WEEKDAY_JA = ("月", "火", "水", "木", "金", "土", "日")
 
 LEVEL_NORMAL = "normal"
 LEVEL_WARNING = "warning"
@@ -85,7 +86,7 @@ def format_percent(window: RateWindow | None) -> str:
 def format_updated_at_jst(value: datetime) -> str:
     local = _to_jst(value)
     return (
-        f"{local.year}/{local.month}/{local.day} "
+        f"{_format_local_date(local)} "
         f"{local.hour}:{local.minute:02d}:{local.second:02d} JST"
     )
 
@@ -99,9 +100,7 @@ def format_cursor_billing_reset(reset_at: datetime | None) -> str:
     if reset_at is None:
         return "-"
     local_reset = reset_at.astimezone()
-    date_part = f"{local_reset.year}/{local_reset.month}/{local_reset.day}"
-    time_part = f"{local_reset.hour}:{local_reset.minute:02d}"
-    return f"{date_part} {time_part}"
+    return f"{_format_local_date(local_reset)} {_format_local_time(local_reset)}"
 
 
 def format_reset_at(reset_at: datetime | None, now: datetime | None = None) -> str:
@@ -113,9 +112,7 @@ def format_reset_at(reset_at: datetime | None, now: datetime | None = None) -> s
         return "now"
     if local_reset.date() == current.date():
         return local_reset.strftime("%H:%M")
-    date_part = f"{local_reset.year}/{local_reset.month}/{local_reset.day}"
-    time_part = f"{local_reset.hour}:{local_reset.minute:02d}"
-    return f"{date_part}  {time_part}"
+    return f"{_format_local_date(local_reset)} {_format_local_time(local_reset)}"
 
 
 def format_reset_time(window: RateWindow | None, now: datetime | None = None) -> str:
@@ -227,6 +224,15 @@ def format_email(email: str | None, width: int = EMAIL_WIDTH) -> str:
     if len(label) <= width:
         return label.ljust(width)
     return label[: width - 1] + "…"
+
+
+def _format_local_date(local: datetime) -> str:
+    weekday = _WEEKDAY_JA[local.weekday()]
+    return f"{local.year}/{local.month}/{local.day}({weekday})"
+
+
+def _format_local_time(local: datetime) -> str:
+    return f"{local.hour}:{local.minute:02d}"
 
 
 def _to_jst(value: datetime) -> datetime:

@@ -113,6 +113,7 @@
     let countdownTimer = null;
     const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     function formatUpdatedAt(updatedAt) {
+      const date = new Date(updatedAt);
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "Asia/Tokyo",
         year: "numeric",
@@ -122,10 +123,14 @@
         minute: "2-digit",
         second: "2-digit",
         hourCycle: "h23",
-      }).formatToParts(new Date(updatedAt));
+      }).formatToParts(date);
+      const weekday = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        weekday: "narrow",
+      }).format(date);
       const get = type => parts.find(part => part.type === type)?.value ?? "";
       const hour = String(Number(get("hour")));
-      return `${get("year")}/${get("month")}/${get("day")} ${hour}:${get("minute")}:${get("second")}`;
+      return `${get("year")}/${get("month")}/${get("day")}(${weekday}) ${hour}:${get("minute")}:${get("second")}`;
     }
     function remainingSeconds(now = Date.now()) {
       if (!lastUpdatedAt) return REFRESH_SECONDS;
