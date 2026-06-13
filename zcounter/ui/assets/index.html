@@ -24,7 +24,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    .header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; }
+    .header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
     .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px var(--safe-bg); }
     .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
@@ -34,12 +34,12 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 0 12px 12px;
+      gap: 8px;
+      padding: 0 12px 10px;
       overflow-y: auto;
     }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
-    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
     .provider { color: var(--secondary); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
     .account { margin-top: 2px; font-size: 15px; font-weight: 600; }
     .plan { margin-top: 1px; color: var(--secondary); font-size: 12px; }
@@ -62,7 +62,7 @@
     .error, .empty { padding: 0 16px 12px; color: var(--secondary); font-size: 11px; }
     .footer { flex-shrink: 0; border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
     .footer-meta {
-      padding: 8px 16px 0;
+      padding: 6px 16px 0;
       color: var(--secondary);
       font-size: 10px;
       line-height: 1.35;
@@ -73,8 +73,26 @@
       color: var(--text);
       font-weight: 600;
     }
-    button { width: 100%; border: 0; padding: 11px; background: transparent; color: #007aff; cursor: pointer; font: inherit; font-size: 13px; }
+    button { width: 100%; border: 0; padding: 9px; background: transparent; color: #007aff; cursor: pointer; font: inherit; font-size: 13px; }
     button:hover { background: rgba(0, 0, 0, .04); } button:disabled { cursor: default; opacity: .5; }
+    .card-cursor .card-top { margin-bottom: 8px; }
+    .cursor-metrics { display: flex; flex-direction: column; gap: 6px; }
+    .cursor-metrics .hero-value { font-size: 24px; margin-top: 2px; }
+    .cursor-metrics .hero .bar { margin-top: 4px; }
+    .cursor-metrics .sub-row { display: flex; gap: 6px; }
+    .cursor-metrics .sub-metric {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 7px;
+      border-radius: 8px;
+      background: #f5f5f7;
+    }
+    .cursor-metrics .sub-metric .metric-label { font-size: 10px; line-height: 1.2; }
+    .cursor-metrics .sub-value { font-size: 15px; margin-top: 1px; }
+    .cursor-metrics .bar.thin { height: 3px; margin-top: 3px; }
+    .cursor-metrics .sub-foot { display: flex; gap: 12px; }
+    .cursor-metrics .sub-foot-col { flex: 1; min-width: 0; }
+    .cursor-metrics .sub-foot .reset { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -140,13 +158,44 @@
         <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
         ${paceHtml}</div>`;
     }
+    function heroMetricHtml(metric) {
+      return `<div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value hero-value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div>`;
+    }
+    function subMetricHtml(metric) {
+      return `<div class="sub-metric"><div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value sub-value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar thin"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div></div>`;
+    }
+    function cursorMetricsHtml(cursor) {
+      const paceClass = cursor.footer.pace_level || "safe";
+      const paceCol = cursor.footer.pace && cursor.footer.pace !== "-"
+        ? `<div class="sub-foot-col"><p class="reset">Pace<strong class="${paceClass}">${escapeHtml(cursor.footer.pace)}</strong></p></div>`
+        : `<div class="sub-foot-col"></div>`;
+      return `<div class="cursor-metrics">
+        <div class="hero">${heroMetricHtml(cursor.total)}</div>
+        <div class="sub-row">${cursor.sub_metrics.map(subMetricHtml).join("")}</div>
+        <div class="sub-foot">
+          <div class="sub-foot-col"><p class="reset">Reset<strong>${escapeHtml(cursor.footer.reset)}</strong></p></div>
+          ${paceCol}
+        </div>
+      </div>`;
+    }
     function cardHtml(account) {
       const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";
-      return `<article class="card"><div class="card-top"><div>
+      const metricsHtml = account.display_mode === "cursor-hero" && account.cursor
+        ? cursorMetricsHtml(account.cursor)
+        : `<div class="metrics">${account.metrics.map(metricHtml).join("")}</div>`;
+      return `<article class="card${account.display_mode === "cursor-hero" ? " card-cursor" : ""}"><div class="card-top"><div>
         <div class="provider">${escapeHtml(account.provider)}</div><div class="account">${escapeHtml(account.account)}</div>
         <div class="plan">${escapeHtml(account.plan)}</div></div>
         <span class="pill ${account.level}">${escapeHtml(account.status_label)}</span></div>
-        <div class="metrics">${account.metrics.map(metricHtml).join("")}</div>${error}</article>`;
+        ${metricsHtml}${error}</article>`;
     }
     function render(payload) {
       if (payload.busy) return;

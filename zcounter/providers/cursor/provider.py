@@ -16,6 +16,10 @@ class CursorUsageShapeError(Exception):
     pass
 
 
+CURSOR_AUTO_LABEL = "Auto(+Composer)"
+CURSOR_API_LABEL = "API"
+
+
 def fetch_cursor_quota_if_configured() -> QuotaSnapshot | None:
     try:
         config = load_cursor_config()
@@ -54,6 +58,7 @@ def normalize_cursor_snapshot(
         raise CursorUsageShapeError("cursor usage summary contains no usable quota")
 
     secondary = _auto_window(usage_summary)
+    tertiary = _api_window(usage_summary)
     email = _string(user_info.get("email")) if isinstance(user_info, dict) else None
     provider_account_id = _string(user_info.get("sub")) if isinstance(user_info, dict) else None
     return QuotaSnapshot(
@@ -65,8 +70,10 @@ def normalize_cursor_snapshot(
         weekly=None,
         primary=primary,
         secondary=secondary,
+        tertiary=tertiary,
         primary_label="Total",
-        secondary_label="Auto",
+        secondary_label=CURSOR_AUTO_LABEL,
+        tertiary_label=CURSOR_API_LABEL if tertiary is not None else None,
         provider_account_id=provider_account_id,
         source="cursor-usage-summary",
         updated_at=utc_now(),
@@ -116,6 +123,16 @@ def _auto_window(data: dict[str, Any]) -> RateWindow | None:
     if not plan:
         return None
     percent = _display_percent(plan.get("autoPercentUsed"))
+    if percent is None:
+        return None
+    return _window(percent, parse_iso_datetime(data.get("billingCycleEnd")))
+
+
+def _api_window(data: dict[str, Any]) -> RateWindow | None:
+    plan = _dict_path(data, "individualUsage", "plan")
+    if not plan:
+        return None
+    percent = _display_percent(plan.get("apiPercentUsed"))
     if percent is None:
         return None
     return _window(percent, parse_iso_datetime(data.get("billingCycleEnd")))
@@ -214,8 +231,10 @@ def _error_snapshot(message: str, warnings: tuple[str, ...] = ()) -> QuotaSnapsh
         weekly=None,
         primary=None,
         secondary=None,
+        tertiary=None,
         primary_label="Total",
-        secondary_label="Auto",
+        secondary_label=CURSOR_AUTO_LABEL,
+        tertiary_label=None,
         provider_account_id=None,
         source="cursor-usage-summary",
         updated_at=utc_now(),

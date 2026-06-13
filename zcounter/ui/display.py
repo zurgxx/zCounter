@@ -16,7 +16,7 @@ STATUS_STALE = "stale"
 STATUS_ERROR = "error"
 
 EMAIL_WIDTH = 20
-CURSOR_QUOTA_WIDTH = 38
+CURSOR_QUOTA_WIDTH = 52
 REFRESH_SECONDS = 300
 
 
@@ -52,13 +52,15 @@ def merge_with_cache(
         error=fresh.error,
         primary=fresh.primary or cached.primary or fresh.five_hour or cached.five_hour,
         secondary=fresh.secondary or cached.secondary or fresh.weekly or cached.weekly,
+        tertiary=fresh.tertiary or cached.tertiary,
         primary_label=fresh.primary_label or cached.primary_label,
         secondary_label=fresh.secondary_label or cached.secondary_label,
+        tertiary_label=fresh.tertiary_label or cached.tertiary_label,
         provider_account_id=fresh.provider_account_id or cached.provider_account_id,
         warnings=fresh.warnings or cached.warnings,
         details=fresh.details or cached.details,
     )
-    if merged.primary is not None or merged.secondary is not None:
+    if merged.primary is not None or merged.secondary is not None or merged.tertiary is not None:
         return merged, STATUS_STALE
     return fresh, STATUS_ERROR
 
@@ -155,12 +157,18 @@ def format_cursor_row(snapshot: QuotaSnapshot) -> str:
     email = format_email(snapshot.email, width=EMAIL_WIDTH)
     primary = display_primary(snapshot)
     secondary = display_secondary(snapshot)
+    tertiary = display_tertiary(snapshot)
     total = f"Total {format_percent(primary)}"
-    auto = f"Auto {format_percent(secondary)}"
+    auto = f"{snapshot.secondary_label or 'Auto'} {format_percent(secondary)}"
+    api = f"{format_percent(tertiary)}" if tertiary is not None else None
     reset = format_cursor_billing_reset(
         primary.reset_at if primary is not None else None,
     )
-    quota = f"{total} {auto} {reset}".ljust(CURSOR_QUOTA_WIDTH)
+    parts = [total, auto]
+    if api is not None:
+        parts.append(f"API {api}")
+    parts.append(reset)
+    quota = " ".join(parts).ljust(CURSOR_QUOTA_WIDTH)
     return f"{email}{quota}"
 
 
@@ -203,6 +211,10 @@ def display_primary(snapshot: QuotaSnapshot) -> RateWindow | None:
 
 def display_secondary(snapshot: QuotaSnapshot) -> RateWindow | None:
     return snapshot.secondary or snapshot.weekly
+
+
+def display_tertiary(snapshot: QuotaSnapshot) -> RateWindow | None:
+    return snapshot.tertiary
 
 
 def format_window_label(label: str | None, fallback: str) -> str:

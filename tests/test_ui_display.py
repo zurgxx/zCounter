@@ -54,13 +54,16 @@ class UIDisplayTests(unittest.TestCase):
             updated_at=datetime(2026, 5, 29, 7, 4, 40, tzinfo=timezone.utc),
             primary=RateWindow(1.0, 99.0, reset_at, None),
             secondary=RateWindow(1.0, 99.0, reset_at, None),
+            tertiary=RateWindow(0.0, 100.0, reset_at, None),
             primary_label="Total",
-            secondary_label="Auto",
+            secondary_label="Auto(+Composer)",
+            tertiary_label="API",
         )
         row = format_cursor_row(snapshot)
         self.assertIn("rock@zurg.jp", row)
         self.assertIn("Total 99%", row)
-        self.assertIn("Auto 99%", row)
+        self.assertIn("Auto(+Composer) 99%", row)
+        self.assertIn("API 100%", row)
         self.assertIn("2026/6/28", row)
 
     def test_format_account_row_uses_codex_layout(self) -> None:

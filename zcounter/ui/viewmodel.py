@@ -12,6 +12,7 @@ from zcounter.ui.display import (
     daily_pace_per_day,
     display_primary,
     display_secondary,
+    display_tertiary,
     format_daily_pace,
     format_reset_at,
     is_cursor,
@@ -73,32 +74,23 @@ def _account_payload(
     status: str,
     now: datetime,
 ) -> dict[str, Any]:
+    if is_cursor(snapshot):
+        return _cursor_account_payload(snapshot, status, now)
+
     primary = display_primary(snapshot)
     secondary = display_secondary(snapshot)
     metrics: list[dict[str, Any]] = []
-    cursor = is_cursor(snapshot)
-    cursor_pace_level = (
-        _cursor_pace_level(daily_pace_per_day(primary, now)) if cursor else None
-    )
-    primary_metric = _metric_payload(snapshot.primary_label or "Primary", primary, now, cursor=cursor)
+    primary_metric = _metric_payload(snapshot.primary_label or "Primary", primary, now)
     if primary_metric is not None:
         metrics.append(primary_metric)
     secondary_metric = _metric_payload(
         snapshot.secondary_label or "Secondary",
         secondary,
         now,
-        cursor=cursor,
     )
     if secondary_metric is not None:
-        if cursor:
-            secondary_metric["reset"] = "-"
-            secondary_metric["pace"] = format_daily_pace(primary, now)
-            secondary_metric["pace_level"] = cursor_pace_level
         metrics.append(secondary_metric)
-    if cursor:
-        level = cursor_pace_level or LEVEL_SAFE
-    else:
-        level = _worst_level([metric["level"] for metric in metrics])
+    level = _worst_level([metric["level"] for metric in metrics])
     if status == STATUS_ERROR:
         level = LEVEL_CRITICAL
     return {
@@ -111,6 +103,65 @@ def _account_payload(
         "status_label": _status_label(status, level),
         "error": snapshot.error,
         "metrics": metrics,
+    }
+
+
+def _cursor_account_payload(
+    snapshot: QuotaSnapshot,
+    status: str,
+    now: datetime,
+) -> dict[str, Any]:
+    primary = display_primary(snapshot)
+    secondary = display_secondary(snapshot)
+    tertiary = display_tertiary(snapshot)
+    cursor_pace_level = _cursor_pace_level(daily_pace_per_day(primary, now))
+    level = cursor_pace_level or LEVEL_SAFE
+    if status == STATUS_ERROR:
+        level = LEVEL_CRITICAL
+
+    total_metric = _metric_payload(snapshot.primary_label or "Total", primary, now, cursor=True)
+    sub_metrics: list[dict[str, Any]] = []
+    secondary_metric = _metric_payload(
+        snapshot.secondary_label or "Auto(+Composer)",
+        secondary,
+        now,
+        cursor=True,
+    )
+    if secondary_metric is not None:
+        sub_metrics.append(secondary_metric)
+    tertiary_metric = _metric_payload(
+        snapshot.tertiary_label or "API",
+        tertiary,
+        now,
+        cursor=True,
+    )
+    if tertiary_metric is not None:
+        sub_metrics.append(tertiary_metric)
+
+    cursor_layout: dict[str, Any] | None = None
+    if total_metric is not None:
+        cursor_layout = {
+            "total": total_metric,
+            "sub_metrics": sub_metrics,
+            "footer": {
+                "reset": format_reset_at(primary.reset_at, now) if primary else "-",
+                "pace": format_daily_pace(primary, now),
+                "pace_level": cursor_pace_level,
+            },
+        }
+
+    return {
+        "provider": snapshot.provider.title(),
+        "account": _account_name(snapshot.email),
+        "email": snapshot.email,
+        "plan": _plan_label(snapshot.plan),
+        "level": level,
+        "status": status,
+        "status_label": _status_label(status, level),
+        "error": snapshot.error,
+        "display_mode": "cursor-hero",
+        "cursor": cursor_layout,
+        "metrics": [],
     }
 
 

@@ -35,11 +35,13 @@ class CursorProviderTests(unittest.TestCase):
         self.assertEqual(snapshot.email, "user@example.com")
         self.assertEqual(snapshot.plan, "Cursor Pro")
         self.assertEqual(snapshot.primary_label, "Total")
-        self.assertEqual(snapshot.secondary_label, "Auto")
+        self.assertEqual(snapshot.secondary_label, "Auto(+Composer)")
         self.assertIsNotNone(snapshot.primary)
         self.assertAlmostEqual(snapshot.primary.used_percent, 0.441025641025641)
         self.assertIsNotNone(snapshot.secondary)
         self.assertAlmostEqual(snapshot.secondary.used_percent, 0.36)
+        self.assertIsNotNone(snapshot.tertiary)
+        self.assertAlmostEqual(snapshot.tertiary.used_percent, 0.7111111111111111)
         self.assertAlmostEqual(snapshot.primary.remaining_percent, 99.55897435897436)
         self.assertAlmostEqual(snapshot.details["api_used_percent"], 0.7111111111111111)
 
@@ -135,16 +137,20 @@ class CursorProviderTests(unittest.TestCase):
         self.assertEqual(snapshot.primary_label, "Total")
         self.assertIsNotNone(snapshot.primary)
         self.assertAlmostEqual(snapshot.primary.used_percent, 0.5897, places=4)
-        self.assertEqual(snapshot.secondary_label, "Auto")
+        self.assertEqual(snapshot.secondary_label, "Auto(+Composer)")
         self.assertIsNotNone(snapshot.secondary)
         self.assertAlmostEqual(snapshot.secondary.used_percent, 0.7666666666666666)
+        self.assertIsNotNone(snapshot.tertiary)
+        self.assertEqual(snapshot.tertiary.used_percent, 0.0)
         self.assertEqual(snapshot.details.get("api_used_percent"), 0.0)
 
         row = _row(snapshot)
         self.assertEqual(row[3], "Total 99%")
         self.assertEqual(row[4], "1%")
-        self.assertEqual(row[5], "Auto 99%")
+        self.assertEqual(row[5], "Auto(+Composer) 99%")
         self.assertEqual(row[6], "1%")
+        self.assertEqual(row[7], "API 100%")
+        self.assertEqual(row[8], "0%")
 
     def test_cursor_percent_fields_take_priority_over_used_limit_ratio(self) -> None:
         snapshot = normalize_cursor_snapshot(

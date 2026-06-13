@@ -76,8 +76,10 @@ class QuotaSnapshot:
     error: str | None = None
     primary: RateWindow | None = None
     secondary: RateWindow | None = None
+    tertiary: RateWindow | None = None
     primary_label: str | None = None
     secondary_label: str | None = None
+    tertiary_label: str | None = None
     provider_account_id: str | None = None
     warnings: tuple[str, ...] = ()
     details: dict[str, Any] | None = None
@@ -85,6 +87,7 @@ class QuotaSnapshot:
     def to_json(self) -> dict[str, Any]:
         primary = self.primary or self.five_hour
         secondary = self.secondary or self.weekly
+        tertiary = self.tertiary
         return {
             "provider": self.provider,
             "email": self.email,
@@ -95,8 +98,10 @@ class QuotaSnapshot:
             "weekly": self.weekly.to_json() if self.weekly else None,
             "primary": primary.to_json() if primary else None,
             "secondary": secondary.to_json() if secondary else None,
+            "tertiary": tertiary.to_json() if tertiary else None,
             "primary_label": self.primary_label,
             "secondary_label": self.secondary_label,
+            "tertiary_label": self.tertiary_label,
             "source": self.source,
             "updated_at": isoformat_or_none(self.updated_at),
             "error": self.error,

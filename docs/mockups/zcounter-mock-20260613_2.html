@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter Mock — 20260613_2 Cursor API layouts</title>
+  <style>
+    :root {
+      --bg: #f5f5f7; --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73;
+      --border: rgba(0, 0, 0, .06); --safe: #34c759; --warning: #ff9500;
+      --critical: #ff3b30; --safe-bg: rgba(52, 199, 89, .12);
+      --warning-bg: rgba(255, 149, 0, .12); --critical-bg: rgba(255, 59, 48, .12);
+      --preview-bg: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      --window-w: 364px;
+      --accent: #007aff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body.preview {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px 64px;
+      background: var(--preview-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .preview-label {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      color: #6e6e73;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .window {
+      width: var(--window-w);
+      min-height: 760px;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .06);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px; }
+    .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px var(--safe-bg); }
+    .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
+    .dot.critical { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-bg); }
+    .variant-bar {
+      padding: 0 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .variant-bar p {
+      color: var(--secondary);
+      font-size: 10px;
+      line-height: 1.4;
+      padding: 0 4px;
+    }
+    .variant-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .variant-tabs button {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 4px;
+      background: var(--surface);
+      color: var(--secondary);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.25;
+    }
+    .variant-tabs button.active {
+      border-color: rgba(0, 122, 255, .35);
+      background: rgba(0, 122, 255, .08);
+      color: var(--accent);
+    }
+    .cards { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .provider { color: var(--secondary); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+    .account { margin-top: 2px; font-size: 15px; font-weight: 600; }
+    .plan { margin-top: 1px; color: var(--secondary); font-size: 12px; }
+    .pill { border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .pill.safe { background: var(--safe-bg); color: #248a3d; }
+    .pill.warning { background: var(--warning-bg); color: #b25000; }
+    .pill.critical { background: var(--critical-bg); color: #d70015; }
+    .metrics { display: flex; gap: 12px; }
+    .metric { flex: 1; min-width: 0; }
+    .metric-label, .reset { color: var(--secondary); font-size: 11px; }
+    .value { margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .value.sm { font-size: 17px; }
+    .value.xs { font-size: 15px; margin-top: 2px; }
+    .safe { color: var(--safe); } .warning { color: var(--warning); } .critical { color: var(--critical); }
+    .bar { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: #e5e5ea; }
+    .bar.thin { height: 3px; margin-top: 4px; }
+    .fill { height: 100%; border-radius: 3px; background: currentColor; }
+    .reset { margin-top: 8px; font-size: 10px; }
+    .reset strong { display: block; margin-top: 1px; color: var(--text); font-size: 11px; font-weight: 500; }
+    .reset strong.safe { color: var(--safe); }
+    .reset strong.warning { color: var(--warning); }
+    .reset strong.critical { color: var(--critical); }
+    .error, .empty { padding: 0 16px 12px; color: var(--secondary); font-size: 11px; }
+    .footer { border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
+    .footer-meta {
+      padding: 8px 16px 0;
+      color: var(--secondary);
+      font-size: 10px;
+      line-height: 1.35;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .footer-meta .countdown { color: var(--text); font-weight: 600; }
+    button.refresh { width: 100%; border: 0; padding: 11px; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-size: 13px; }
+    button.refresh:hover { background: rgba(0, 0, 0, .04); }
+    button.refresh:disabled { cursor: default; opacity: .5; }
+
+    /* --- Cursor layout variants --- */
+    .cursor-metrics-a { display: flex; gap: 8px; }
+    .cursor-metrics-a .metric { flex: 1; min-width: 0; }
+    .cursor-metrics-a .value { font-size: 18px; }
+    .cursor-metrics-a .metric-label { font-size: 10px; }
+    .cursor-metrics-a .reset { margin-top: 6px; font-size: 9px; }
+    .cursor-metrics-a .reset strong { font-size: 10px; }
+
+    .cursor-metrics-b { display: flex; flex-direction: column; gap: 10px; }
+    .cursor-metrics-b .row-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .cursor-metrics-b .row-top .hero { flex: 1; min-width: 0; }
+    .cursor-metrics-b .row-top .reset-block { flex-shrink: 0; text-align: right; }
+    .cursor-metrics-b .row-top .reset-block .reset { margin-top: 0; }
+    .cursor-metrics-b .row-bottom { display: flex; gap: 10px; padding-top: 2px; border-top: 1px solid var(--border); }
+    .cursor-metrics-b .row-bottom .metric { flex: 1; }
+
+    .cursor-metrics-c {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cursor-inline {
+      font-size: 13px;
+      line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .cursor-inline .sep { color: #c7c7cc; margin: 0 2px; }
+    .cursor-inline .lbl { color: var(--secondary); font-size: 11px; font-weight: 600; margin-right: 2px; }
+    .cursor-inline .num { font-weight: 700; }
+    .cursor-inline .num.safe { color: var(--safe); }
+    .cursor-inline .num.warning { color: var(--warning); }
+    .cursor-inline .num.critical { color: var(--critical); }
+    .cursor-inline-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--secondary);
+      font-size: 10px;
+    }
+    .cursor-inline-meta strong { color: var(--text); font-weight: 500; }
+    .cursor-inline-meta .pace strong.warning { color: var(--warning); }
+
+    .cursor-metrics-d { display: flex; flex-direction: column; gap: 10px; }
+    .cursor-metrics-d .hero .value { font-size: 28px; }
+    .cursor-metrics-d .sub-row { display: flex; gap: 8px; }
+    .cursor-metrics-d .sub-metric {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #f5f5f7;
+    }
+    .cursor-metrics-d .sub-metric .metric-label { font-size: 10px; }
+    .cursor-metrics-d .sub-metric .value.xs { font-size: 16px; }
+    .cursor-metrics-d .sub-foot {
+      display: flex;
+      gap: 12px;
+    }
+    .cursor-metrics-d .sub-foot-col {
+      flex: 1;
+      min-width: 0;
+    }
+  </style>
+</head>
+<body class="preview">
+  <p class="preview-label">Mock 20260613_2 — Cursor API display variants</p>
+  <div class="window">
+    <header class="header"><h1>zCounter</h1><span id="dot" class="dot" title="正常"></span></header>
+    <div class="variant-bar">
+      <div class="variant-tabs" role="tablist" aria-label="Cursor layout variant">
+        <button type="button" data-variant="a" aria-selected="false">案A<br>3列</button>
+        <button type="button" data-variant="b" aria-selected="false">案B<br>2段</button>
+        <button type="button" data-variant="c" aria-selected="false">案C<br>1行</button>
+        <button type="button" class="active" data-variant="d" aria-selected="true">案D<br>主役</button>
+      </div>
+      <p id="variant-note">案D — Total を大きく主役表示。Auto(+Composer) / API はサブカード。Reset / Pace は既存 UI と同じ。</p>
+    </div>
+    <main id="cards" class="cards"><p class="empty">Loading...</p></main>
+    <footer class="footer">
+      <p id="footer-meta" class="footer-meta">—</p>
+      <button type="button" class="refresh" id="refresh">Refresh</button>
+    </footer>
+  </div>
+  <script>
+    const VARIANT_NOTES = {
+      a: "案A — Total / Auto / API を同幅3列。既存カード構造の延長。数字はやや小さく（18px）。",
+      b: "案B — Total を上段ヒーロー＋Reset。Auto / API は下段2列。縦長だがラベルが読みやすい。",
+      c: "案C — 1行テキストで Total · Auto · API。省スペース。Reset / Pace は下のメタ行。",
+      d: "案D — Total を大きく主役表示。Auto(+Composer) / API はサブカード。Reset / Pace は既存 UI と同じ。",
+    };
+
+    // 実 API 相当: total 47% used, auto 61% used, api 0.8% used
+    const CURSOR_METRICS = {
+      total: { label: "Total", remaining_percent: 53, level: "safe", reset: "2026/6/28  9:36" },
+      auto: { label: "Auto(+Composer)", remaining_percent: 39, level: "safe", reset: "-", pace: "2.8%/d", pace_level: "warning" },
+      api: { label: "API", remaining_percent: 99, level: "safe", reset: "-" },
+    };
+
+    const MOCK_PAYLOAD = {
+      accounts: [
+        {
+          provider: "Codex",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 87, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+        {
+          provider: "Codex",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 89, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+        {
+          provider: "Cursor",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Cursor Pro",
+          level: "warning",
+          status: "ok",
+          status_label: "Warning",
+          error: null,
+          cursor_metrics: CURSOR_METRICS,
+        },
+        {
+          provider: "Claude",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Pro",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 98, level: "safe", reset: "13:59" },
+            { label: "WK", remaining_percent: 100, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+      ],
+      critical_count: 0,
+      warning_count: 1,
+      updated_at: null,
+    };
+
+    const REFRESH_SECONDS = 300;
+    let activeVariant = "d";
+
+    const cards = document.getElementById("cards");
+    const dot = document.getElementById("dot");
+    const footerMeta = document.getElementById("footer-meta");
+    const refreshButton = document.getElementById("refresh");
+    const variantNote = document.getElementById("variant-note");
+    const variantButtons = document.querySelectorAll(".variant-tabs button");
+    let lastUpdatedAt = null;
+    let countdownTimer = null;
+
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+    function formatUpdatedAt(updatedAt) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(new Date(updatedAt));
+      const get = type => parts.find(part => part.type === type)?.value ?? "";
+      const hour = String(Number(get("hour")));
+      return `${get("year")}/${get("month")}/${get("day")} ${hour}:${get("minute")}:${get("second")}`;
+    }
+
+    function remainingSeconds(now = Date.now()) {
+      if (!lastUpdatedAt) return REFRESH_SECONDS;
+      const nextAt = lastUpdatedAt.getTime() + REFRESH_SECONDS * 1000;
+      return Math.max(0, Math.ceil((nextAt - now) / 1000));
+    }
+
+    function updateFooterMeta() {
+      if (!lastUpdatedAt) {
+        footerMeta.textContent = "—";
+        return;
+      }
+      const stamp = formatUpdatedAt(lastUpdatedAt);
+      const remaining = remainingSeconds();
+      footerMeta.innerHTML = `updated ${escapeHtml(stamp)} · <span class="countdown">${remaining}s</span>`;
+    }
+
+    function startCountdown() {
+      if (countdownTimer) window.clearInterval(countdownTimer);
+      updateFooterMeta();
+      countdownTimer = window.setInterval(updateFooterMeta, 1000);
+    }
+
+    function paceHtml(metric) {
+      const paceClass = metric.pace_level || metric.level;
+      if (metric.pace && metric.pace !== "-") {
+        return `<p class="reset">Pace<strong class="${paceClass}">${escapeHtml(metric.pace)}</strong></p>`;
+      }
+      if (metric.reset === "-") return "";
+      return `<p class="reset">Reset<strong>${escapeHtml(metric.reset)}</strong></p>`;
+    }
+
+    function metricBlock(metric, { valueClass = "" } = {}) {
+      return `<div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value ${valueClass} ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+        ${paceHtml(metric)}
+      </div>`;
+    }
+
+    function heroMetricBlock(metric) {
+      return `<div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div>`;
+    }
+
+    function thinMetricBlock(metric) {
+      return `<div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value xs ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar thin"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div>`;
+    }
+
+    function cursorMetricsHtml(variant, cm) {
+      const { total, auto, api } = cm;
+      if (variant === "a") {
+        return `<div class="cursor-metrics-a">
+          ${metricBlock(total, { valueClass: "sm" })}
+          ${metricBlock(auto, { valueClass: "sm" })}
+          ${metricBlock(api, { valueClass: "sm" })}
+        </div>`;
+      }
+      if (variant === "b") {
+        return `<div class="cursor-metrics-b">
+          <div class="row-top">
+            <div class="hero">${metricBlock(total)}</div>
+            <div class="reset-block"><p class="reset">Reset<strong>${escapeHtml(total.reset)}</strong></p></div>
+          </div>
+          <div class="row-bottom">
+            ${metricBlock(auto)}
+            ${metricBlock(api)}
+          </div>
+        </div>`;
+      }
+      if (variant === "c") {
+        const inline = (m) => `<span><span class="lbl">${escapeHtml(m.label)}</span><span class="num ${m.level}">${m.remaining_percent}%</span></span>`;
+        return `<div class="cursor-metrics-c">
+          <p class="cursor-inline">${inline(total)}<span class="sep">·</span>${inline(auto)}<span class="sep">·</span>${inline(api)}</p>
+          <div class="cursor-inline-meta">
+            <span>Reset <strong>${escapeHtml(total.reset)}</strong></span>
+            <span class="pace">Pace <strong class="warning">${escapeHtml(auto.pace)}</strong></span>
+          </div>
+        </div>`;
+      }
+      // variant d
+      const paceClass = auto.pace_level || auto.level;
+      return `<div class="cursor-metrics-d">
+        <div class="hero">${heroMetricBlock(total)}</div>
+        <div class="sub-row">
+          <div class="sub-metric">${thinMetricBlock(auto)}</div>
+          <div class="sub-metric">${thinMetricBlock(api)}</div>
+        </div>
+        <div class="sub-foot">
+          <div class="sub-foot-col"><p class="reset">Reset<strong>${escapeHtml(total.reset)}</strong></p></div>
+          <div class="sub-foot-col"><p class="reset">Pace<strong class="${paceClass}">${escapeHtml(auto.pace)}</strong></p></div>
+        </div>
+      </div>`;
+    }
+
+    function metricHtml(metric) {
+      return metricBlock(metric);
+    }
+
+    function cardHtml(account) {
+      const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";
+      const metricsHtml = account.cursor_metrics
+        ? cursorMetricsHtml(activeVariant, account.cursor_metrics)
+        : `<div class="metrics">${account.metrics.map(metricHtml).join("")}</div>`;
+      return `<article class="card"><div class="card-top"><div>
+        <div class="provider">${escapeHtml(account.provider)}</div><div class="account">${escapeHtml(account.account)}</div>
+        <div class="plan">${escapeHtml(account.plan)}</div></div>
+        <span class="pill ${account.level}">${escapeHtml(account.status_label)}</span></div>
+        ${metricsHtml}${error}</article>`;
+    }
+
+    function render(payload) {
+      if (payload.busy) return;
+      cards.innerHTML = payload.accounts.length ? payload.accounts.map(cardHtml).join("") : '<p class="empty">No accounts</p>';
+      const level = payload.critical_count ? "critical" : payload.warning_count ? "warning" : "safe";
+      dot.className = `dot ${level}`;
+      dot.title = payload.critical_count ? `${payload.critical_count}件 critical` : payload.warning_count ? `${payload.warning_count}件 warning` : "正常";
+      if (payload.updated_at) {
+        lastUpdatedAt = new Date(payload.updated_at);
+        startCountdown();
+      } else {
+        lastUpdatedAt = null;
+        if (countdownTimer) window.clearInterval(countdownTimer);
+        footerMeta.textContent = "—";
+      }
+    }
+
+    function setVariant(variant) {
+      activeVariant = variant;
+      variantButtons.forEach(btn => {
+        const on = btn.dataset.variant === variant;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      variantNote.textContent = VARIANT_NOTES[variant];
+      render({ ...MOCK_PAYLOAD, updated_at: lastUpdatedAt ? lastUpdatedAt.toISOString() : new Date().toISOString() });
+    }
+
+    variantButtons.forEach(btn => {
+      btn.addEventListener("click", () => setVariant(btn.dataset.variant));
+    });
+
+    function refresh() {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "...";
+      window.setTimeout(() => {
+        render({ ...MOCK_PAYLOAD, updated_at: new Date().toISOString() });
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Refresh";
+      }, 150);
+    }
+
+    refreshButton.addEventListener("click", refresh);
+    render({ ...MOCK_PAYLOAD, updated_at: new Date().toISOString() });
+  </script>
+</body>
+</html>

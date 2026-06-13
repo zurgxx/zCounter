@@ -24,7 +24,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def print_table(snapshots: Sequence[QuotaSnapshot]) -> None:
     rows = [_row(snapshot) for snapshot in snapshots]
-    headers = ["PROVIDER", "ACCOUNT", "PLAN", "PRIMARY", "USED", "SECONDARY", "USED", "SOURCE", "ERROR"]
+    headers = [
+        "PROVIDER",
+        "ACCOUNT",
+        "PLAN",
+        "PRIMARY",
+        "USED",
+        "SECONDARY",
+        "USED",
+        "TERTIARY",
+        "USED",
+        "SOURCE",
+        "ERROR",
+    ]
     widths = [len(header) for header in headers]
     for row in rows:
         for index, value in enumerate(row):
@@ -39,6 +51,7 @@ def print_table(snapshots: Sequence[QuotaSnapshot]) -> None:
 def _row(snapshot: QuotaSnapshot) -> list[str]:
     primary = snapshot.primary or snapshot.five_hour
     secondary = snapshot.secondary or snapshot.weekly
+    tertiary = snapshot.tertiary
     return [
         snapshot.provider,
         snapshot.email or "-",
@@ -47,6 +60,8 @@ def _row(snapshot: QuotaSnapshot) -> list[str]:
         _used(primary),
         _labeled_remaining(snapshot.secondary_label, secondary),
         _used(secondary),
+        _labeled_remaining(snapshot.tertiary_label, tertiary),
+        _used(tertiary),
         snapshot.source,
         snapshot.error or _warning(snapshot) or "-",
     ]
