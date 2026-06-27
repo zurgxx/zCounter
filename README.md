@@ -27,6 +27,8 @@ python3 -m venv --system-site-packages .venv
 - `Refresh` ボタンと 5 分ごとの自動更新（Claude OAuth API のレート制限を避けるため CodexBar と同じ間隔）
 - 取得に失敗した行は、直前の成功値を残して `Stale` または `Error` として表示
 
+UI のデザイン検討用静的モックは `docs/mockups/` に置く（運用ルールはローカル `AGENTS.md`）。
+
 Windows 11 の WSLg 上でも起動できます。Ubuntu 以外では、ディストリビューションに
 応じた GTK / WebKitGTK パッケージを追加してください。
 
