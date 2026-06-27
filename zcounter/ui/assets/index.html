@@ -93,6 +93,14 @@
     .cursor-metrics .sub-foot { display: flex; gap: 12px; }
     .cursor-metrics .sub-foot-col { flex: 1; min-width: 0; }
     .cursor-metrics .sub-foot .reset { margin-top: 0; }
+    .codex-reset-foot {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      padding-top: 2px;
+    }
+    .codex-reset-foot .sub-foot-col { flex: 1; min-width: 0; }
+    .codex-reset-foot .reset { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -116,7 +124,6 @@
       const date = new Date(updatedAt);
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "Asia/Tokyo",
-        year: "numeric",
         month: "numeric",
         day: "numeric",
         hour: "numeric",
@@ -130,7 +137,7 @@
       }).format(date);
       const get = type => parts.find(part => part.type === type)?.value ?? "";
       const hour = String(Number(get("hour")));
-      return `${get("year")}/${get("month")}/${get("day")}(${weekday}) ${hour}:${get("minute")}:${get("second")}`;
+      return `${get("month")}/${get("day")}(${weekday}) ${hour}:${get("minute")}:${get("second")}`;
     }
     function remainingSeconds(now = Date.now()) {
       if (!lastUpdatedAt) return REFRESH_SECONDS;
@@ -191,16 +198,24 @@
         </div>
       </div>`;
     }
+    function codexResetCreditsHtml(resetCredits) {
+      if (!resetCredits) return "";
+      return `<div class="codex-reset-foot">
+        <div class="sub-foot-col"><p class="reset">Reset Credits<strong>${escapeHtml(resetCredits.available_label)}</strong></p></div>
+        <div class="sub-foot-col"><p class="reset">Expires<strong>${escapeHtml(resetCredits.expires)}</strong></p></div>
+      </div>`;
+    }
     function cardHtml(account) {
       const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";
       const metricsHtml = account.display_mode === "cursor-hero" && account.cursor
         ? cursorMetricsHtml(account.cursor)
         : `<div class="metrics">${account.metrics.map(metricHtml).join("")}</div>`;
+      const resetCreditsHtml = account.reset_credits ? codexResetCreditsHtml(account.reset_credits) : "";
       return `<article class="card${account.display_mode === "cursor-hero" ? " card-cursor" : ""}"><div class="card-top"><div>
         <div class="provider">${escapeHtml(account.provider)}</div><div class="account">${escapeHtml(account.account)}</div>
         <div class="plan">${escapeHtml(account.plan)}</div></div>
         <span class="pill ${account.level}">${escapeHtml(account.status_label)}</span></div>
-        ${metricsHtml}${error}</article>`;
+        ${metricsHtml}${resetCreditsHtml}${error}</article>`;
     }
     function render(payload) {
       if (payload.busy) return;

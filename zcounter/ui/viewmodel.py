@@ -15,6 +15,8 @@ from zcounter.ui.display import (
     display_tertiary,
     format_daily_pace,
     format_reset_at,
+    format_reset_credits_available_label,
+    format_reset_credits_expires,
     is_cursor,
     merge_with_cache,
 )
@@ -93,7 +95,7 @@ def _account_payload(
     level = _worst_level([metric["level"] for metric in metrics])
     if status == STATUS_ERROR:
         level = LEVEL_CRITICAL
-    return {
+    payload: dict[str, Any] = {
         "provider": snapshot.provider.title(),
         "account": _account_name(snapshot.email),
         "email": snapshot.email,
@@ -103,6 +105,22 @@ def _account_payload(
         "status_label": _status_label(status, level),
         "error": snapshot.error,
         "metrics": metrics,
+    }
+    reset_credits = _codex_reset_credits_payload(snapshot)
+    if reset_credits is not None:
+        payload["reset_credits"] = reset_credits
+    return payload
+
+
+def _codex_reset_credits_payload(snapshot: QuotaSnapshot) -> dict[str, str] | None:
+    if snapshot.provider != "codex":
+        return None
+    credits = snapshot.codex_reset_credits
+    if credits is None or credits.available_count <= 0:
+        return None
+    return {
+        "available_label": format_reset_credits_available_label(credits.available_count),
+        "expires": format_reset_credits_expires(credits.expires_at),
     }
 
 

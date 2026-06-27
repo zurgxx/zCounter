@@ -60,6 +60,7 @@ def merge_with_cache(
         provider_account_id=fresh.provider_account_id or cached.provider_account_id,
         warnings=fresh.warnings or cached.warnings,
         details=fresh.details or cached.details,
+        codex_reset_credits=fresh.codex_reset_credits or cached.codex_reset_credits,
     )
     if merged.primary is not None or merged.secondary is not None or merged.tertiary is not None:
         return merged, STATUS_STALE
@@ -101,6 +102,25 @@ def format_cursor_billing_reset(reset_at: datetime | None) -> str:
         return "-"
     local_reset = reset_at.astimezone()
     return f"{_format_local_date(local_reset)} {_format_local_time(local_reset)}"
+
+
+def format_credit_expires_at(expires_at: datetime | None) -> str:
+    if expires_at is None:
+        return "-"
+    local = expires_at.astimezone()
+    return f"{_format_local_date(local)} {_format_local_time(local)}"
+
+
+def format_reset_credits_expires(expires_at: tuple[datetime, ...]) -> str:
+    if not expires_at:
+        return "-"
+    return "、".join(format_credit_expires_at(value) for value in expires_at)
+
+
+def format_reset_credits_available_label(available_count: int) -> str:
+    if available_count == 1:
+        return "1 available"
+    return f"{available_count} available"
 
 
 def format_reset_at(reset_at: datetime | None, now: datetime | None = None) -> str:
@@ -228,7 +248,7 @@ def format_email(email: str | None, width: int = EMAIL_WIDTH) -> str:
 
 def _format_local_date(local: datetime) -> str:
     weekday = _WEEKDAY_JA[local.weekday()]
-    return f"{local.year}/{local.month}/{local.day}({weekday})"
+    return f"{local.month}/{local.day}({weekday})"
 
 
 def _format_local_time(local: datetime) -> str:

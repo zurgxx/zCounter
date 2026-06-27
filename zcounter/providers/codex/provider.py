@@ -8,7 +8,9 @@ from zcounter.providers.codex.registry import RegistryError, list_accounts
 from zcounter.providers.codex.usage_api import (
     UsageAPIError,
     UsageShapeError,
+    fetch_rate_limit_reset_credits,
     fetch_usage,
+    normalize_reset_credits_response,
     normalize_usage_response,
 )
 
@@ -56,6 +58,7 @@ def _fetch_account_quota(account, auths_by_account_id) -> QuotaSnapshot:
         response = fetch_usage(auth.access_token, account_id)
         five_hour, weekly = normalize_usage_response(response)
         plan = account.plan or _string_plan(response.get("plan_type"))
+        reset_credits = _fetch_reset_credits(auth.access_token, account_id)
         return QuotaSnapshot(
             provider="codex",
             email=account.email or auth.email,
@@ -71,6 +74,7 @@ def _fetch_account_quota(account, auths_by_account_id) -> QuotaSnapshot:
             primary_label="5H",
             secondary_label="WEEK",
             provider_account_id=account_id,
+            codex_reset_credits=reset_credits,
         )
     except (UsageAPIError, UsageShapeError) as exc:
         return _error_snapshot(account, str(exc), utc_now())
@@ -93,6 +97,14 @@ def _error_snapshot(account, message: str, updated_at) -> QuotaSnapshot:
         secondary_label="WEEK",
         provider_account_id=account.chatgpt_account_id,
     )
+
+
+def _fetch_reset_credits(access_token: str, account_id: str):
+    try:
+        response = fetch_rate_limit_reset_credits(access_token, account_id)
+        return normalize_reset_credits_response(response)
+    except (UsageAPIError, UsageShapeError):
+        return None
 
 
 def _string_plan(value) -> str | None:

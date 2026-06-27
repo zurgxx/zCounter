@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from zcounter.models import QuotaSnapshot, RateWindow
+from zcounter.models import CodexResetCredits, QuotaSnapshot, RateWindow
 from zcounter.ui.display import STATUS_OK, STATUS_STALE
 from zcounter.ui.viewmodel import SnapshotStore, build_payload
 
@@ -116,7 +116,7 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["sub_metrics"][0]["remaining_percent"], 45)
         self.assertEqual(cursor["sub_metrics"][1]["label"], "API")
         self.assertEqual(cursor["sub_metrics"][1]["remaining_percent"], 99)
-        self.assertEqual(cursor["footer"]["reset"], "2026/6/28(日) 9:36")
+        self.assertEqual(cursor["footer"]["reset"], "6/28(日) 9:36")
         self.assertEqual(cursor["footer"]["pace"], "4.1%/d")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
 
@@ -169,6 +169,64 @@ class UIViewModelTests(unittest.TestCase):
         metrics = payload["accounts"][0]["metrics"]
         self.assertNotIn("pace", metrics[0])
         self.assertNotIn("pace", metrics[1])
+
+    def test_codex_reset_credits_payload_uses_sub_foot_fields(self) -> None:
+        snapshot = _snapshot(remaining=54)
+        snapshot = QuotaSnapshot(
+            provider=snapshot.provider,
+            email=snapshot.email,
+            plan=snapshot.plan,
+            chatgpt_account_id=snapshot.chatgpt_account_id,
+            five_hour=snapshot.five_hour,
+            weekly=snapshot.weekly,
+            source=snapshot.source,
+            updated_at=snapshot.updated_at,
+            error=snapshot.error,
+            primary=snapshot.primary,
+            secondary=snapshot.secondary,
+            primary_label=snapshot.primary_label,
+            secondary_label=snapshot.secondary_label,
+            provider_account_id=snapshot.provider_account_id,
+            codex_reset_credits=CodexResetCredits(
+                available_count=2,
+                expires_at=(
+                    datetime(2026, 7, 12, 4, 3, 43, tzinfo=timezone.utc),
+                    datetime(2026, 7, 27, 0, 39, 53, tzinfo=timezone.utc),
+                ),
+            ),
+        )
+        payload = build_payload(
+            [(snapshot, STATUS_OK)],
+            datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc),
+        )
+        reset_credits = payload["accounts"][0]["reset_credits"]
+        self.assertEqual(reset_credits["available_label"], "2 available")
+        self.assertEqual(reset_credits["expires"], "7/12(日) 13:03、7/27(月) 9:39")
+
+    def test_codex_reset_credits_omitted_when_zero(self) -> None:
+        snapshot = _snapshot(remaining=54)
+        snapshot = QuotaSnapshot(
+            provider=snapshot.provider,
+            email=snapshot.email,
+            plan=snapshot.plan,
+            chatgpt_account_id=snapshot.chatgpt_account_id,
+            five_hour=snapshot.five_hour,
+            weekly=snapshot.weekly,
+            source=snapshot.source,
+            updated_at=snapshot.updated_at,
+            error=snapshot.error,
+            primary=snapshot.primary,
+            secondary=snapshot.secondary,
+            primary_label=snapshot.primary_label,
+            secondary_label=snapshot.secondary_label,
+            provider_account_id=snapshot.provider_account_id,
+            codex_reset_credits=CodexResetCredits(available_count=0, expires_at=()),
+        )
+        payload = build_payload(
+            [(snapshot, STATUS_OK)],
+            datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc),
+        )
+        self.assertNotIn("reset_credits", payload["accounts"][0])
 
     def test_stale_rows_returns_cached_success(self) -> None:
         store = SnapshotStore()

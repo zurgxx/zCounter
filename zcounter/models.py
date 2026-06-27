@@ -55,6 +55,12 @@ class RateWindow:
 
 
 @dataclass(frozen=True)
+class CodexResetCredits:
+    available_count: int
+    expires_at: tuple[datetime, ...]
+
+
+@dataclass(frozen=True)
 class CodexAccount:
     account_key: str
     chatgpt_account_id: str | None
@@ -83,6 +89,7 @@ class QuotaSnapshot:
     provider_account_id: str | None = None
     warnings: tuple[str, ...] = ()
     details: dict[str, Any] | None = None
+    codex_reset_credits: CodexResetCredits | None = None
 
     def to_json(self) -> dict[str, Any]:
         primary = self.primary or self.five_hour

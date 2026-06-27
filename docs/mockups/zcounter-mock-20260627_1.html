@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zCounter Mock — 20260627_1 Codex reset credits</title>
+  <style>
+    :root {
+      --bg: #f5f5f7; --surface: #fff; --text: #1d1d1f; --secondary: #6e6e73;
+      --border: rgba(0, 0, 0, .06); --safe: #34c759; --warning: #ff9500;
+      --critical: #ff3b30; --safe-bg: rgba(52, 199, 89, .12);
+      --warning-bg: rgba(255, 149, 0, .12); --critical-bg: rgba(255, 59, 48, .12);
+      --preview-bg: linear-gradient(160deg, #e8e8ed 0%, #d1d1d6 100%);
+      --window-w: 364px;
+      --accent: #007aff;
+      --credit-bg: rgba(0, 122, 255, .08);
+      --credit-text: #0066cc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body.preview {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px 64px;
+      background: var(--preview-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .preview-label {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      color: #6e6e73;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .window {
+      width: var(--window-w);
+      min-height: 760px;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .06);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+    .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px var(--safe-bg); }
+    .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
+    .dot.critical { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-bg); }
+    .variant-bar {
+      padding: 0 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .variant-bar p {
+      color: var(--secondary);
+      font-size: 10px;
+      line-height: 1.45;
+      padding: 0 4px;
+    }
+    .variant-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+    .variant-tabs button {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 4px;
+      background: var(--surface);
+      color: var(--secondary);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.3;
+    }
+    .variant-tabs button.active {
+      border-color: rgba(0, 122, 255, .35);
+      background: rgba(0, 122, 255, .08);
+      color: var(--accent);
+    }
+    .cards { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 10px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+    .card-top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .provider { color: var(--secondary); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+    .account { margin-top: 2px; font-size: 15px; font-weight: 600; }
+    .plan { margin-top: 1px; color: var(--secondary); font-size: 12px; }
+    .pill { border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .pill.safe { background: var(--safe-bg); color: #248a3d; }
+    .pill.warning { background: var(--warning-bg); color: #b25000; }
+    .pill.critical { background: var(--critical-bg); color: #d70015; }
+    .metrics { display: flex; gap: 12px; }
+    .metric { flex: 1; min-width: 0; }
+    .metric-label, .reset { color: var(--secondary); font-size: 11px; }
+    .value { margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .safe { color: var(--safe); } .warning { color: var(--warning); } .critical { color: var(--critical); }
+    .bar { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: #e5e5ea; }
+    .fill { height: 100%; border-radius: 3px; background: currentColor; }
+    .reset { margin-top: 8px; font-size: 10px; }
+    .reset strong { display: block; margin-top: 1px; color: var(--text); font-size: 11px; font-weight: 500; }
+    .reset strong.safe { color: var(--safe); }
+    .reset strong.warning { color: var(--warning); }
+    .reset strong.critical { color: var(--critical); }
+    .error, .empty { padding: 0 16px 12px; color: var(--secondary); font-size: 11px; }
+    .footer { border-top: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
+    .footer-meta {
+      padding: 6px 16px 0;
+      color: var(--secondary);
+      font-size: 10px;
+      line-height: 1.35;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .footer-meta .countdown { color: var(--text); font-weight: 600; }
+    button.refresh { width: 100%; border: 0; padding: 9px; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-size: 13px; }
+    button.refresh:hover { background: rgba(0, 0, 0, .04); }
+    button.refresh:disabled { cursor: default; opacity: .5; }
+
+    /* Cursor (本番 index.html 案D) */
+    .card-cursor .card-top { margin-bottom: 8px; }
+    .cursor-metrics { display: flex; flex-direction: column; gap: 6px; }
+    .cursor-metrics .hero-value { font-size: 24px; margin-top: 2px; }
+    .cursor-metrics .hero .bar { margin-top: 4px; }
+    .cursor-metrics .sub-row { display: flex; gap: 6px; }
+    .cursor-metrics .sub-metric {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 7px;
+      border-radius: 8px;
+      background: #f5f5f7;
+    }
+    .cursor-metrics .sub-metric .metric-label { font-size: 10px; line-height: 1.2; }
+    .cursor-metrics .sub-value { font-size: 15px; margin-top: 1px; }
+    .cursor-metrics .bar.thin { height: 3px; margin-top: 3px; }
+    .cursor-metrics .sub-foot { display: flex; gap: 12px; }
+    .cursor-metrics .sub-foot-col { flex: 1; min-width: 0; }
+    .cursor-metrics .sub-foot .reset { margin-top: 0; }
+
+    /* 案A — Sub-foot（Cursor Reset/Pace と同型） */
+    .codex-reset-foot {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      padding-top: 2px;
+    }
+    .codex-reset-foot .sub-foot-col { flex: 1; min-width: 0; }
+    .codex-reset-foot .reset { margin-top: 0; }
+
+    /* 案B — ヘッダーバッジ */
+    .reset-badge {
+      border-radius: 6px;
+      padding: 3px 7px;
+      background: var(--credit-bg);
+      color: var(--credit-text);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .reset-badge-sub {
+      color: var(--secondary);
+      font-size: 9px;
+      font-weight: 500;
+      line-height: 1.2;
+      text-align: right;
+      max-width: 88px;
+    }
+
+    /* 案C — インフォストリップ */
+    .reset-strip {
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: #f5f5f7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .reset-strip .strip-main {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .reset-strip .strip-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--credit-bg);
+      color: var(--credit-text);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reset-strip .strip-label { color: var(--secondary); font-size: 10px; font-weight: 600; }
+    .reset-strip .strip-value { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+    .reset-strip .strip-expires {
+      flex-shrink: 0;
+      color: var(--secondary);
+      font-size: 10px;
+      text-align: right;
+    }
+    .reset-strip .strip-expires strong {
+      display: block;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body class="preview">
+  <p class="preview-label">Mock 20260627_1 — Codex banked reset credits</p>
+  <div class="window">
+    <header class="header"><h1>zCounter</h1><span id="dot" class="dot" title="正常"></span></header>
+    <div class="variant-bar">
+      <div class="variant-tabs" role="tablist" aria-label="Reset credits layout variant">
+        <button type="button" class="active" data-variant="a" aria-selected="true">案A<br>Sub-foot</button>
+        <button type="button" data-variant="b" aria-selected="false">案B<br>バッジ</button>
+        <button type="button" data-variant="c" aria-selected="false">案C<br>ストリップ</button>
+      </div>
+      <p id="variant-note">案A — Cursor の Reset/Pace と同型の2列フッター。複数枚あるとき Expires は期限を「、」で並列表示。残数 0 は非表示。</p>
+    </div>
+    <main id="cards" class="cards"><p class="empty">Loading...</p></main>
+    <footer class="footer">
+      <p id="footer-meta" class="footer-meta">—</p>
+      <button type="button" class="refresh" id="refresh">Refresh</button>
+    </footer>
+  </div>
+  <script>
+    const VARIANT_NOTES = {
+      a: "案A — Cursor の Reset/Pace と同型の2列フッター。複数枚あるとき Expires は期限を「、」で並列表示。残数 0 は非表示。",
+      b: "案B — Safe pill の上に小さなバッジ（↻×N）。縦幅はほぼ増えない。期限はバッジ下の1行。rock は 0 枚で非表示の例。",
+      c: "案C — metrics 下の全幅グレー帯。アイコン＋残数＋期限を1ブロックにまとめる。情報密度は中程度。",
+    };
+
+    const MOCK_PAYLOAD = {
+      accounts: [
+        {
+          provider: "Codex",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 87, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+          reset_credits: { available_count: 2, expires_list: ["2026/7/12", "2026/7/27"] },
+        },
+        {
+          provider: "Codex",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Plus",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 99, level: "safe", reset: "13:59" },
+            { label: "WEEK", remaining_percent: 89, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+          reset_credits: { available_count: 0, expires_list: [] },
+        },
+        {
+          provider: "Cursor",
+          account: "rock",
+          email: "rock@zurg.jp",
+          plan: "Cursor Pro",
+          level: "warning",
+          status: "ok",
+          status_label: "Warning",
+          error: null,
+          display_mode: "cursor-hero",
+          cursor: {
+            total: { label: "Total", remaining_percent: 53, level: "safe" },
+            sub_metrics: [
+              { label: "Auto(+Composer)", remaining_percent: 39, level: "safe" },
+              { label: "API", remaining_percent: 99, level: "safe" },
+            ],
+            footer: { reset: "2026/6/28  9:36", pace: "2.8%/d", pace_level: "warning" },
+          },
+        },
+        {
+          provider: "Claude",
+          account: "zurgxx",
+          email: "zurgxx@gmail.com",
+          plan: "Pro",
+          level: "safe",
+          status: "ok",
+          status_label: "Safe",
+          error: null,
+          metrics: [
+            { label: "5H", remaining_percent: 98, level: "safe", reset: "13:59" },
+            { label: "WK", remaining_percent: 100, level: "safe", reset: "2026/6/16  21:59" },
+          ],
+        },
+      ],
+      critical_count: 0,
+      warning_count: 1,
+      updated_at: null,
+    };
+
+    const REFRESH_SECONDS = 300;
+    let activeVariant = "a";
+
+    const cards = document.getElementById("cards");
+    const dot = document.getElementById("dot");
+    const footerMeta = document.getElementById("footer-meta");
+    const refreshButton = document.getElementById("refresh");
+    const variantNote = document.getElementById("variant-note");
+    const variantButtons = document.querySelectorAll(".variant-tabs button");
+    let lastUpdatedAt = null;
+    let countdownTimer = null;
+
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+    function formatUpdatedAt(updatedAt) {
+      const date = new Date(updatedAt);
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(date);
+      const weekday = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        weekday: "narrow",
+      }).format(date);
+      const get = type => parts.find(part => part.type === type)?.value ?? "";
+      const hour = String(Number(get("hour")));
+      return `${get("year")}/${get("month")}/${get("day")}(${weekday}) ${hour}:${get("minute")}:${get("second")}`;
+    }
+
+    function remainingSeconds(now = Date.now()) {
+      if (!lastUpdatedAt) return REFRESH_SECONDS;
+      const nextAt = lastUpdatedAt.getTime() + REFRESH_SECONDS * 1000;
+      return Math.max(0, Math.ceil((nextAt - now) / 1000));
+    }
+
+    function updateFooterMeta() {
+      if (!lastUpdatedAt) {
+        footerMeta.textContent = "—";
+        return;
+      }
+      const stamp = formatUpdatedAt(lastUpdatedAt);
+      const remaining = remainingSeconds();
+      footerMeta.innerHTML = `updated ${escapeHtml(stamp)} · <span class="countdown">${remaining}s</span>`;
+    }
+
+    function startCountdown() {
+      if (countdownTimer) window.clearInterval(countdownTimer);
+      updateFooterMeta();
+      countdownTimer = window.setInterval(updateFooterMeta, 1000);
+    }
+
+    function resetCreditsLabel(count) {
+      if (count === 1) return "1 available";
+      return `${count} available`;
+    }
+
+    function resetCreditsExpiresText(rc) {
+      const list = rc.expires_list?.filter(Boolean) ?? [];
+      if (list.length) return list.join("、");
+      return rc.expires || "—";
+    }
+
+    function resetCreditsHtml(account, variant) {
+      const rc = account.reset_credits;
+      if (!rc || rc.available_count <= 0) return "";
+      const count = rc.available_count;
+      const expires = resetCreditsExpiresText(rc);
+      const countLabel = resetCreditsLabel(count);
+
+      if (variant === "a") {
+        return `<div class="codex-reset-foot">
+          <div class="sub-foot-col"><p class="reset">Reset Credits<strong>${escapeHtml(countLabel)}</strong></p></div>
+          <div class="sub-foot-col"><p class="reset">Expires<strong>${escapeHtml(expires)}</strong></p></div>
+        </div>`;
+      }
+      if (variant === "b") {
+        return "";
+      }
+      return `<div class="reset-strip">
+        <div class="strip-main">
+          <span class="strip-icon" aria-hidden="true">↻</span>
+          <div>
+            <div class="strip-label">Banked reset</div>
+            <div class="strip-value">${escapeHtml(countLabel)}</div>
+          </div>
+        </div>
+        <div class="strip-expires">Expires<strong>${escapeHtml(expires)}</strong></div>
+      </div>`;
+    }
+
+    function cardTopRightHtml(account, variant) {
+      const rc = account.reset_credits;
+      const expires = rc ? resetCreditsExpiresText(rc) : "—";
+      const badge = variant === "b" && rc && rc.available_count > 0
+        ? `<span class="reset-badge" title="Banked rate-limit reset credits">↻×${rc.available_count}</span>`
+        : "";
+      const badgeSub = variant === "b" && rc && rc.available_count > 0 && expires !== "—"
+        ? `<span class="reset-badge-sub">exp ${escapeHtml(expires)}</span>`
+        : "";
+      return `<div class="card-top-right">${badge}${badgeSub}<span class="pill ${account.level}">${escapeHtml(account.status_label)}</span></div>`;
+    }
+
+    function metricHtml(metric) {
+      const paceClass = metric.pace_level || metric.level;
+      const paceBlock = metric.pace && metric.pace !== "-"
+        ? `<p class="reset">Pace<strong class="${paceClass}">${escapeHtml(metric.pace)}</strong></p>`
+        : metric.reset === "-"
+          ? ""
+          : `<p class="reset">Reset<strong>${escapeHtml(metric.reset)}</strong></p>`;
+      return `<div class="metric"><div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+        ${paceBlock}</div>`;
+    }
+
+    function heroMetricHtml(metric) {
+      return `<div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value hero-value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div>`;
+    }
+
+    function subMetricHtml(metric) {
+      return `<div class="sub-metric"><div class="metric">
+        <div class="metric-label">${escapeHtml(metric.label)}</div>
+        <div class="value sub-value ${metric.level}">${metric.remaining_percent}%</div>
+        <div class="bar thin"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
+      </div></div>`;
+    }
+
+    function cursorMetricsHtml(cursor) {
+      const paceClass = cursor.footer.pace_level || "safe";
+      const paceCol = cursor.footer.pace && cursor.footer.pace !== "-"
+        ? `<div class="sub-foot-col"><p class="reset">Pace<strong class="${paceClass}">${escapeHtml(cursor.footer.pace)}</strong></p></div>`
+        : `<div class="sub-foot-col"></div>`;
+      return `<div class="cursor-metrics">
+        <div class="hero">${heroMetricHtml(cursor.total)}</div>
+        <div class="sub-row">${cursor.sub_metrics.map(subMetricHtml).join("")}</div>
+        <div class="sub-foot">
+          <div class="sub-foot-col"><p class="reset">Reset<strong>${escapeHtml(cursor.footer.reset)}</strong></p></div>
+          ${paceCol}
+        </div>
+      </div>`;
+    }
+
+    function cardHtml(account) {
+      const error = account.error && account.status !== "ok" ? `<p class="error">${escapeHtml(account.error)}</p>` : "";
+      const isCodex = account.provider === "Codex";
+      const topRight = isCodex
+        ? cardTopRightHtml(account, activeVariant)
+        : `<span class="pill ${account.level}">${escapeHtml(account.status_label)}</span>`;
+      const metricsHtml = account.display_mode === "cursor-hero" && account.cursor
+        ? cursorMetricsHtml(account.cursor)
+        : `<div class="metrics">${account.metrics.map(metricHtml).join("")}</div>`;
+      const resetHtml = isCodex ? resetCreditsHtml(account, activeVariant) : "";
+      return `<article class="card${account.display_mode === "cursor-hero" ? " card-cursor" : ""}"><div class="card-top"><div>
+        <div class="provider">${escapeHtml(account.provider)}</div><div class="account">${escapeHtml(account.account)}</div>
+        <div class="plan">${escapeHtml(account.plan)}</div></div>
+        ${topRight}</div>
+        ${metricsHtml}${resetHtml}${error}</article>`;
+    }
+
+    function render(payload) {
+      if (payload.busy) return;
+      cards.innerHTML = payload.accounts.length ? payload.accounts.map(cardHtml).join("") : '<p class="empty">No accounts</p>';
+      const level = payload.critical_count ? "critical" : payload.warning_count ? "warning" : "safe";
+      dot.className = `dot ${level}`;
+      dot.title = payload.critical_count ? `${payload.critical_count}件 critical` : payload.warning_count ? `${payload.warning_count}件 warning` : "正常";
+      if (payload.updated_at) {
+        lastUpdatedAt = new Date(payload.updated_at);
+        startCountdown();
+      } else {
+        lastUpdatedAt = null;
+        if (countdownTimer) window.clearInterval(countdownTimer);
+        footerMeta.textContent = "—";
+      }
+    }
+
+    function setVariant(variant) {
+      activeVariant = variant;
+      variantButtons.forEach(btn => {
+        const on = btn.dataset.variant === variant;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      variantNote.textContent = VARIANT_NOTES[variant];
+      render({ ...MOCK_PAYLOAD, updated_at: lastUpdatedAt ? lastUpdatedAt.toISOString() : new Date().toISOString() });
+    }
+
+    variantButtons.forEach(btn => {
+      btn.addEventListener("click", () => setVariant(btn.dataset.variant));
+    });
+
+    function refresh() {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "...";
+      window.setTimeout(() => {
+        render({ ...MOCK_PAYLOAD, updated_at: new Date().toISOString() });
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Refresh";
+      }, 150);
+    }
+
+    refreshButton.addEventListener("click", refresh);
+    render({ ...MOCK_PAYLOAD, updated_at: new Date().toISOString() });
+  </script>
+</body>
+</html>
