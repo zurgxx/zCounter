@@ -158,12 +158,16 @@ def _cursor_account_payload(
 
     cursor_layout: dict[str, Any] | None = None
     if total_metric is not None:
+        composer_pace_level = _cursor_pace_level(daily_pace_per_day(secondary, now))
         cursor_layout = {
             "total": total_metric,
             "sub_metrics": sub_metrics,
             "footer": {
                 "reset": format_reset_at(primary.reset_at, now) if primary else "-",
-                "pace": format_daily_pace(primary, now),
+                "pace_total": format_daily_pace(primary, now),
+                "pace_total_level": cursor_pace_level,
+                "pace_composer": format_daily_pace(secondary, now),
+                "pace_composer_level": composer_pace_level,
                 "pace_level": cursor_pace_level,
             },
         }

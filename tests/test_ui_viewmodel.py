@@ -117,7 +117,10 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["sub_metrics"][1]["label"], "API")
         self.assertEqual(cursor["sub_metrics"][1]["remaining_percent"], 99)
         self.assertEqual(cursor["footer"]["reset"], "6/28(日) 9:36")
-        self.assertEqual(cursor["footer"]["pace"], "4.1%/d")
+        self.assertEqual(cursor["footer"]["pace_total"], "4.1%/d")
+        self.assertEqual(cursor["footer"]["pace_total_level"], "safe")
+        self.assertEqual(cursor["footer"]["pace_composer"], "3.0%/d")
+        self.assertEqual(cursor["footer"]["pace_composer_level"], "safe")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
 
     def test_cursor_uses_pace_for_warning_and_critical(self) -> None:
@@ -159,7 +162,10 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(account["cursor"]["total"]["level"], "safe")
         self.assertEqual(account["cursor"]["sub_metrics"][0]["level"], "safe")
         self.assertEqual(account["cursor"]["footer"]["pace_level"], "safe")
-        self.assertEqual(account["cursor"]["footer"]["pace"], "4.1%/d")
+        self.assertEqual(account["cursor"]["footer"]["pace_total"], "4.1%/d")
+        self.assertEqual(account["cursor"]["footer"]["pace_total_level"], "safe")
+        self.assertEqual(account["cursor"]["footer"]["pace_composer"], "2.6%/d")
+        self.assertEqual(account["cursor"]["footer"]["pace_composer_level"], "warning")
 
     def test_codex_metrics_keep_reset_on_both(self) -> None:
         payload = build_payload(
