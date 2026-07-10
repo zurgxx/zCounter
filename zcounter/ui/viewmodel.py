@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from zcounter.models import QuotaSnapshot, RateWindow
+from zcounter.providers.codex.consistency import preserve_unreset_codex_windows
 from zcounter.ui.display import (
     STATUS_ERROR,
     STATUS_OK,
@@ -40,6 +41,11 @@ class SnapshotStore:
             cached = self._cache.get(key)
             if cached is None and snapshot.error:
                 cached = self._single_provider_cache(snapshot.provider)
+            snapshot = preserve_unreset_codex_windows(
+                cached,
+                snapshot,
+                now=snapshot.updated_at,
+            )
             merged, status = merge_with_cache(cached, snapshot)
             if status in (STATUS_OK, STATUS_STALE):
                 self._cache[account_key(merged)] = merged

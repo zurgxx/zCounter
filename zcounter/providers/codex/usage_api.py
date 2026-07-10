@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -155,12 +156,14 @@ def _parse_window(raw: Any) -> RateWindow | None:
         raise WindowShapeError("window is not an object")
 
     used_percent = raw.get("used_percent")
-    if not isinstance(used_percent, (int, float)):
+    if isinstance(used_percent, bool) or not isinstance(used_percent, (int, float)):
         raise WindowShapeError("window.used_percent is missing or invalid")
 
     limit_seconds = raw.get("limit_window_seconds")
     window_minutes = _window_minutes(limit_seconds)
-    used = max(0.0, min(100.0, float(used_percent)))
+    used = float(used_percent)
+    if not math.isfinite(used) or not 0.0 <= used <= 100.0:
+        raise WindowShapeError("window.used_percent is outside 0..100")
     return RateWindow(
         used_percent=used,
         remaining_percent=max(0.0, 100.0 - used),
