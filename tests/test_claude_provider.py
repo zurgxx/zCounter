@@ -195,7 +195,15 @@ class ClaudeProviderTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": tmp}, clear=False):
+            profile_cache = Path(tmp) / "profile-cache.json"
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CLAUDE_CONFIG_DIR": tmp,
+                    "ZCOUNTER_CLAUDE_PROFILE_CACHE": str(profile_cache),
+                },
+                clear=False,
+            ):
                 with mock.patch.object(
                     provider,
                     "fetch_usage",
@@ -322,7 +330,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         with mock.patch.object(usage_api.urllib.request, "urlopen", side_effect=fail):
             with self.assertRaises(ClaudeUnauthorizedError) as raised:
-                fetch_usage("redacted")
+                fetch_usage("redacted", user_initiated=True)
 
         self.assertEqual(str(raised.exception), "Claude Code login required or token expired")
         self.assertNotIn("redacted", str(raised.exception))
@@ -339,7 +347,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         with mock.patch.object(usage_api.urllib.request, "urlopen", side_effect=fail):
             with self.assertRaises(ClaudeUnauthorizedError) as raised:
-                fetch_usage("redacted")
+                fetch_usage("redacted", user_initiated=True)
 
         self.assertEqual(str(raised.exception), "Claude Code login required or token expired")
 
@@ -369,7 +377,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         with mock.patch.object(usage_api.urllib.request, "urlopen", side_effect=fail):
             with self.assertRaises(ClaudeAPIError) as raised:
-                usage_api.fetch_usage("redacted")
+                usage_api.fetch_usage("redacted", user_initiated=True)
 
         self.assertNotIn("redacted", str(raised.exception))
 
@@ -386,7 +394,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         with mock.patch.object(usage_api.urllib.request, "urlopen", return_value=Response()):
             with self.assertRaises(ClaudeShapeError) as raised:
-                usage_api.fetch_usage("redacted")
+                usage_api.fetch_usage("redacted", user_initiated=True)
 
         self.assertNotIn("redacted", str(raised.exception))
 
@@ -444,7 +452,7 @@ class ClaudeProviderTests(unittest.TestCase):
                 json.dumps({"claudeAiOauth": {"accessToken": "redacted"}}),
                 encoding="utf-8",
             )
-            now = datetime.datetime(2026, 6, 12, 12, 0, tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
             with mock.patch.dict(
                 "os.environ",
                 {
@@ -471,7 +479,7 @@ class ClaudeProviderTests(unittest.TestCase):
                 json.dumps({"claudeAiOauth": {"accessToken": "redacted"}}),
                 encoding="utf-8",
             )
-            now = datetime.datetime(2026, 6, 12, 12, 0, tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
             with mock.patch.dict(
                 "os.environ",
                 {
