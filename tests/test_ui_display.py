@@ -41,6 +41,12 @@ class UIDisplayTests(unittest.TestCase):
         window = RateWindow(0.0, 0.0, reset_at, None)
         self.assertEqual(format_daily_pace(window, now), "now")
 
+    def test_format_daily_pace_uses_hourly_within_24h(self) -> None:
+        reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 27, 12, 36, tzinfo=timezone.utc)
+        window = RateWindow(85.0, 15.0, reset_at, None)
+        self.assertEqual(format_daily_pace(window, now), "1.2%/h")
+
     def test_format_cursor_row(self) -> None:
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc).astimezone()
         snapshot = QuotaSnapshot(

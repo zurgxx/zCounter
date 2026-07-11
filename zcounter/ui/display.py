@@ -141,16 +141,38 @@ def format_reset_time(window: RateWindow | None, now: datetime | None = None) ->
     return format_reset_at(window.reset_at, now)
 
 
+PACE_HOURLY_THRESHOLD_SECONDS = 86400
+
+
 def format_daily_pace(window: RateWindow | None, now: datetime | None = None) -> str:
-    pace = daily_pace_per_day(window, now)
-    if pace is None:
+    remaining = _remaining_until_reset(window, now)
+    if remaining is None:
         if window is None or window.reset_at is None:
             return "-"
         return "now"
-    return f"{pace:.1f}%/d"
+    remaining_seconds, remaining_percent = remaining
+    if remaining_seconds < PACE_HOURLY_THRESHOLD_SECONDS:
+        remaining_hours = remaining_seconds / 3600
+        return f"{remaining_percent / remaining_hours:.1f}%/h"
+    remaining_days = remaining_seconds / 86400
+    return f"{remaining_percent / remaining_days:.1f}%/d"
 
 
 def daily_pace_per_day(window: RateWindow | None, now: datetime | None = None) -> float | None:
+    remaining = _remaining_until_reset(window, now)
+    if remaining is None:
+        return None
+    remaining_seconds, remaining_percent = remaining
+    remaining_days = remaining_seconds / 86400
+    if remaining_days <= 0:
+        return None
+    return remaining_percent / remaining_days
+
+
+def _remaining_until_reset(
+    window: RateWindow | None,
+    now: datetime | None = None,
+) -> tuple[float, float] | None:
     if window is None:
         return None
     reset_at = window.reset_at
@@ -160,10 +182,10 @@ def daily_pace_per_day(window: RateWindow | None, now: datetime | None = None) -
     local_reset = reset_at.astimezone()
     if local_reset <= current:
         return None
-    remaining_days = (local_reset - current).total_seconds() / 86400
-    if remaining_days <= 0:
+    remaining_seconds = (local_reset - current).total_seconds()
+    if remaining_seconds <= 0:
         return None
-    return window.remaining_percent / remaining_days
+    return remaining_seconds, window.remaining_percent
 
 
 def is_cursor(snapshot: QuotaSnapshot) -> bool:

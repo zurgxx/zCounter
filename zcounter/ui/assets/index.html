@@ -90,9 +90,10 @@
     .cursor-metrics .sub-metric .metric-label { font-size: 10px; line-height: 1.2; }
     .cursor-metrics .sub-value { font-size: 15px; margin-top: 1px; }
     .cursor-metrics .bar.thin { height: 3px; margin-top: 3px; }
-    .cursor-metrics .sub-foot { display: flex; gap: 12px; }
+    .cursor-metrics .sub-foot { display: flex; gap: 8px; }
     .cursor-metrics .sub-foot-col { flex: 1; min-width: 0; }
     .cursor-metrics .sub-foot .reset { margin-top: 0; }
+    .cursor-metrics .sub-foot .reset .pace-label { font-size: 9px; letter-spacing: -.01em; }
     .codex-reset-foot {
       display: flex;
       gap: 12px;
@@ -184,17 +185,20 @@
         <div class="bar thin"><div class="fill ${metric.level}" style="width:${metric.remaining_percent}%"></div></div>
       </div></div>`;
     }
+    function paceFootCol(label, value, level) {
+      if (!value || value === "-") return `<div class="sub-foot-col"></div>`;
+      const paceClass = level || "safe";
+      return `<div class="sub-foot-col"><p class="reset"><span class="pace-label">${escapeHtml(label)}</span><strong class="${paceClass}">${escapeHtml(value)}</strong></p></div>`;
+    }
     function cursorMetricsHtml(cursor) {
-      const paceClass = cursor.footer.pace_level || "safe";
-      const paceCol = cursor.footer.pace && cursor.footer.pace !== "-"
-        ? `<div class="sub-foot-col"><p class="reset">Pace<strong class="${paceClass}">${escapeHtml(cursor.footer.pace)}</strong></p></div>`
-        : `<div class="sub-foot-col"></div>`;
+      const footer = cursor.footer;
       return `<div class="cursor-metrics">
         <div class="hero">${heroMetricHtml(cursor.total)}</div>
         <div class="sub-row">${cursor.sub_metrics.map(subMetricHtml).join("")}</div>
         <div class="sub-foot">
-          <div class="sub-foot-col"><p class="reset">Reset<strong>${escapeHtml(cursor.footer.reset)}</strong></p></div>
-          ${paceCol}
+          <div class="sub-foot-col"><p class="reset">Reset<strong>${escapeHtml(footer.reset)}</strong></p></div>
+          ${paceFootCol("Pace(Total)", footer.pace_total, footer.pace_total_level)}
+          ${paceFootCol("Pace(Composer)", footer.pace_composer, footer.pace_composer_level)}
         </div>
       </div>`;
     }
