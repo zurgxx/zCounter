@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 from zcounter.models import QuotaSnapshot
 from zcounter.providers.aggregate import fetch_all_quotas
+from zcounter.ui.display import display_primary as _display_primary
+from zcounter.ui.display import display_secondary as _display_secondary
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -49,8 +51,8 @@ def print_table(snapshots: Sequence[QuotaSnapshot]) -> None:
 
 
 def _row(snapshot: QuotaSnapshot) -> list[str]:
-    primary = snapshot.primary or snapshot.five_hour
-    secondary = snapshot.secondary or snapshot.weekly
+    primary = _display_primary(snapshot)
+    secondary = _display_secondary(snapshot)
     tertiary = snapshot.tertiary
     return [
         snapshot.provider,

@@ -10,8 +10,8 @@ from zcounter.providers.codex.usage_api import (
     UsageShapeError,
     fetch_rate_limit_reset_credits,
     fetch_usage,
+    normalize_codex_usage,
     normalize_reset_credits_response,
-    normalize_usage_response,
 )
 
 
@@ -30,8 +30,8 @@ def fetch_codex_quotas(registry_file: Path | None = None) -> list[QuotaSnapshot]
                 source="codex-auth-registry",
                 updated_at=utc_now(),
                 error=str(exc),
-                primary_label="5H",
-                secondary_label="WEEK",
+                primary_label=None,
+                secondary_label=None,
             )
         ]
 
@@ -56,7 +56,7 @@ def _fetch_account_quota(account, auths_by_account_id) -> QuotaSnapshot:
 
     try:
         response = fetch_usage(auth.access_token, account_id)
-        five_hour, weekly = normalize_usage_response(response)
+        usage = normalize_codex_usage(response)
         plan = account.plan or _string_plan(response.get("plan_type"))
         reset_credits = _fetch_reset_credits(auth.access_token, account_id)
         return QuotaSnapshot(
@@ -64,15 +64,15 @@ def _fetch_account_quota(account, auths_by_account_id) -> QuotaSnapshot:
             email=account.email or auth.email,
             plan=plan,
             chatgpt_account_id=account_id,
-            five_hour=five_hour,
-            weekly=weekly,
+            five_hour=usage.five_hour,
+            weekly=usage.weekly,
             source="wham-usage",
             updated_at=utc_now(),
             error=None,
-            primary=five_hour,
-            secondary=weekly,
-            primary_label="5H",
-            secondary_label="WEEK",
+            primary=usage.primary,
+            secondary=usage.secondary,
+            primary_label=usage.primary_label,
+            secondary_label=usage.secondary_label,
             provider_account_id=account_id,
             codex_reset_credits=reset_credits,
         )
@@ -93,8 +93,8 @@ def _error_snapshot(account, message: str, updated_at) -> QuotaSnapshot:
         source="wham-usage",
         updated_at=updated_at,
         error=message,
-        primary_label="5H",
-        secondary_label="WEEK",
+        primary_label=None,
+        secondary_label=None,
         provider_account_id=account.chatgpt_account_id,
     )
 

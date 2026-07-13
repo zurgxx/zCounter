@@ -245,11 +245,19 @@ def format_status_suffix(status: str, snapshot: QuotaSnapshot) -> str:
 
 
 def display_primary(snapshot: QuotaSnapshot) -> RateWindow | None:
-    return snapshot.primary or snapshot.five_hour
+    if snapshot.primary is not None:
+        return snapshot.primary
+    if snapshot.secondary is not None:
+        return None
+    return snapshot.five_hour
 
 
 def display_secondary(snapshot: QuotaSnapshot) -> RateWindow | None:
-    return snapshot.secondary or snapshot.weekly
+    if snapshot.secondary is not None:
+        return snapshot.secondary
+    if snapshot.primary is not None:
+        return None
+    return snapshot.weekly
 
 
 def display_tertiary(snapshot: QuotaSnapshot) -> RateWindow | None:

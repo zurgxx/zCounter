@@ -176,6 +176,33 @@ class UIViewModelTests(unittest.TestCase):
         self.assertNotIn("pace", metrics[0])
         self.assertNotIn("pace", metrics[1])
 
+    def test_codex_week_only_shape_shows_single_week_metric(self) -> None:
+        week = RateWindow(0.0, 100.0, datetime(2026, 7, 20, tzinfo=timezone.utc), 10_080, 604_800)
+        snapshot = QuotaSnapshot(
+            provider="codex",
+            email="rock@example.com",
+            plan="plus",
+            chatgpt_account_id="account-id",
+            five_hour=None,
+            weekly=week,
+            source="wham-usage",
+            updated_at=datetime(2026, 7, 13, tzinfo=timezone.utc),
+            error=None,
+            primary=week,
+            secondary=None,
+            primary_label="WEEK",
+            secondary_label=None,
+            provider_account_id="account-id",
+        )
+        payload = build_payload(
+            [(snapshot, STATUS_OK)],
+            datetime(2026, 7, 13, tzinfo=timezone.utc),
+        )
+        metrics = payload["accounts"][0]["metrics"]
+        self.assertEqual(len(metrics), 1)
+        self.assertEqual(metrics[0]["label"], "WEEK")
+        self.assertNotIn("5H", [metric["label"] for metric in metrics])
+
     def test_codex_reset_credits_payload_uses_sub_foot_fields(self) -> None:
         snapshot = _snapshot(remaining=54)
         snapshot = QuotaSnapshot(

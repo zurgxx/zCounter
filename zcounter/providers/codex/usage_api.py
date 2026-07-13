@@ -4,6 +4,7 @@ import json
 import math
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +13,11 @@ from zcounter.models import CodexResetCredits, RateWindow, parse_iso_datetime, p
 
 USAGE_URL = "https://chatgpt.com/backend-api/wham/usage"
 RESET_CREDITS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+
+FIVE_HOUR_SECONDS = 18_000
+WEEK_SECONDS = 604_800
+DAY_SECONDS = 86_400
+HOUR_SECONDS = 3_600
 
 
 class UsageAPIError(Exception):
@@ -28,6 +34,16 @@ class UsageShapeError(UsageAPIError):
 
 class WindowShapeError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class CodexUsageNormalized:
+    five_hour: RateWindow | None
+    weekly: RateWindow | None
+    primary: RateWindow | None
+    secondary: RateWindow | None
+    primary_label: str | None
+    secondary_label: str | None
 
 
 def fetch_usage(
@@ -131,15 +147,104 @@ def normalize_reset_credits_response(
     return CodexResetCredits(available_count=available_count, expires_at=tuple(expires_at))
 
 
-def normalize_usage_response(data: dict[str, Any]) -> tuple[RateWindow | None, RateWindow | None]:
+def window_label_from_seconds(seconds: int | None) -> str:
+    if seconds is None:
+        return "WINDOW"
+    if seconds == FIVE_HOUR_SECONDS:
+        return "5H"
+    if seconds == WEEK_SECONDS:
+        return "WEEK"
+    if seconds % DAY_SECONDS == 0:
+        return f"{seconds // DAY_SECONDS}D"
+    if seconds % HOUR_SECONDS == 0:
+        return f"{seconds // HOUR_SECONDS}H"
+    return "WINDOW"
+
+
+def normalize_codex_usage(data: dict[str, Any]) -> CodexUsageNormalized:
     rate_limit = data.get("rate_limit")
     if not isinstance(rate_limit, dict):
         raise UsageShapeError("usage API response missing rate_limit object")
-    five_hour = _parse_window_lenient(rate_limit.get("primary_window"))
-    weekly = _parse_window_lenient(rate_limit.get("secondary_window"))
-    if five_hour is None and weekly is None:
+
+    windows = _parse_rate_limit_windows(rate_limit)
+    if not windows:
         raise UsageShapeError("usage API response contains no rate limit windows")
-    return five_hour, weekly
+
+    five_hour = _window_by_seconds(windows, FIVE_HOUR_SECONDS)
+    weekly = _window_by_seconds(windows, WEEK_SECONDS)
+    primary, secondary, primary_label, secondary_label = build_codex_display_slots(windows)
+    return CodexUsageNormalized(
+        five_hour=five_hour,
+        weekly=weekly,
+        primary=primary,
+        secondary=secondary,
+        primary_label=primary_label,
+        secondary_label=secondary_label,
+    )
+
+
+def normalize_usage_response(data: dict[str, Any]) -> tuple[RateWindow | None, RateWindow | None]:
+    normalized = normalize_codex_usage(data)
+    return normalized.five_hour, normalized.weekly
+
+
+def build_codex_display_slots(
+    windows: list[RateWindow],
+) -> tuple[RateWindow | None, RateWindow | None, str | None, str | None]:
+    if not windows:
+        return None, None, None, None
+    ordered = sorted(windows, key=lambda window: window.window_seconds or 0)
+    primary = ordered[0]
+    secondary = ordered[1] if len(ordered) > 1 else None
+    primary_label = window_label_from_seconds(primary.window_seconds)
+    secondary_label = (
+        window_label_from_seconds(secondary.window_seconds) if secondary is not None else None
+    )
+    return primary, secondary, primary_label, secondary_label
+
+
+def rebuild_codex_display(
+    five_hour: RateWindow | None,
+    weekly: RateWindow | None,
+    *extra: RateWindow | None,
+) -> tuple[RateWindow | None, RateWindow | None, str | None, str | None]:
+    windows = _unique_windows(five_hour, weekly, *extra)
+    return build_codex_display_slots(windows)
+
+
+def _parse_rate_limit_windows(rate_limit: dict[str, Any]) -> list[RateWindow]:
+    windows: list[RateWindow] = []
+    for key in ("primary_window", "secondary_window"):
+        window = _parse_window_lenient(rate_limit.get(key))
+        if window is not None:
+            windows.append(window)
+    return windows
+
+
+def _window_by_seconds(windows: list[RateWindow], seconds: int) -> RateWindow | None:
+    for window in windows:
+        if window.window_seconds == seconds:
+            return window
+    return None
+
+
+def _unique_windows(*candidates: RateWindow | None) -> list[RateWindow]:
+    windows: list[RateWindow] = []
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        if any(_same_window(existing, candidate) for existing in windows):
+            continue
+        windows.append(candidate)
+    return windows
+
+
+def _same_window(left: RateWindow, right: RateWindow) -> bool:
+    return (
+        left.window_seconds == right.window_seconds
+        and left.used_percent == right.used_percent
+        and left.reset_at == right.reset_at
+    )
 
 
 def _parse_window_lenient(raw: Any) -> RateWindow | None:
@@ -160,6 +265,7 @@ def _parse_window(raw: Any) -> RateWindow | None:
         raise WindowShapeError("window.used_percent is missing or invalid")
 
     limit_seconds = raw.get("limit_window_seconds")
+    window_seconds = _window_seconds(limit_seconds)
     window_minutes = _window_minutes(limit_seconds)
     used = float(used_percent)
     if not math.isfinite(used) or not 0.0 <= used <= 100.0:
@@ -169,7 +275,16 @@ def _parse_window(raw: Any) -> RateWindow | None:
         remaining_percent=max(0.0, 100.0 - used),
         reset_at=parse_unix_timestamp(raw.get("reset_at")),
         window_minutes=window_minutes,
+        window_seconds=window_seconds,
     )
+
+
+def _window_seconds(value: Any) -> int | None:
+    if not isinstance(value, (int, float)):
+        return None
+    if value <= 0:
+        return None
+    return int(value)
 
 
 def _window_minutes(value: Any) -> int | None:

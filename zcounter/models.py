@@ -47,6 +47,7 @@ class RateWindow:
     remaining_percent: float
     reset_at: datetime | None
     window_minutes: int | None
+    window_seconds: int | None = None
 
     def to_json(self) -> dict[str, Any]:
         data = asdict(self)

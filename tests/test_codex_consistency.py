@@ -5,18 +5,26 @@ from datetime import datetime, timedelta, timezone
 
 from zcounter.models import QuotaSnapshot, RateWindow
 from zcounter.providers.codex.consistency import preserve_unreset_codex_windows
+from zcounter.providers.codex.usage_api import rebuild_codex_display
 from zcounter.ui.display import STATUS_OK, STATUS_STALE
 from zcounter.ui.viewmodel import SnapshotStore
 
 
 NOW = datetime(2026, 7, 10, 12, tzinfo=timezone.utc)
 RESET = NOW + timedelta(hours=4)
+FIVE_HOUR_SECONDS = 18_000
+WEEK_SECONDS = 604_800
 
 
-def _window(used: float | None, reset: datetime | None = RESET) -> RateWindow | None:
+def _window(
+    used: float | None,
+    reset: datetime | None = RESET,
+    *,
+    seconds: int = FIVE_HOUR_SECONDS,
+) -> RateWindow | None:
     if used is None:
         return None
-    return RateWindow(used, 100.0 - used, reset, 300)
+    return RateWindow(used, 100.0 - used, reset, seconds // 60, seconds)
 
 
 def _snapshot(
@@ -30,8 +38,20 @@ def _snapshot(
     account_id: str = "account-id",
     warnings: tuple[str, ...] = (),
 ) -> QuotaSnapshot:
-    five_hour_window = None if error else _window(five_hour, five_hour_reset)
-    weekly_window = None if error else _window(weekly, weekly_reset)
+    five_hour_window = None if error or five_hour is None else _window(
+        five_hour,
+        five_hour_reset,
+        seconds=FIVE_HOUR_SECONDS,
+    )
+    weekly_window = None if error or weekly is None else _window(
+        weekly,
+        weekly_reset,
+        seconds=WEEK_SECONDS,
+    )
+    primary, secondary, primary_label, secondary_label = rebuild_codex_display(
+        five_hour_window,
+        weekly_window,
+    )
     return QuotaSnapshot(
         provider="codex",
         email=f"{account_id}@example.com",
@@ -42,10 +62,10 @@ def _snapshot(
         source="wham-usage",
         updated_at=updated_at,
         error=error,
-        primary=five_hour_window,
-        secondary=weekly_window,
-        primary_label="5H",
-        secondary_label="WEEK",
+        primary=primary,
+        secondary=secondary,
+        primary_label=primary_label,
+        secondary_label=secondary_label,
         provider_account_id=account_id,
         warnings=warnings,
     )
@@ -194,13 +214,41 @@ class CodexConsistencyTests(unittest.TestCase):
         self.assertEqual(snapshot.weekly.used_percent, 80)
 
     def test_existing_warning_is_not_duplicated(self) -> None:
-        warning = "Codex 5H usage near zero without reset evidence; previous value retained"
+        warning = (
+            "Codex 5H usage near zero without reset evidence; previous value retained"
+        )
         result = self._reconcile(
             _snapshot(five_hour=65),
             _snapshot(five_hour=0, warnings=(warning,)),
         )
 
         self.assertEqual(result.warnings, (warning,))
+
+    def test_different_duration_windows_are_not_cross_preserved(self) -> None:
+        previous = _snapshot(five_hour=65, weekly=None)
+        current = QuotaSnapshot(
+            provider="codex",
+            email=previous.email,
+            plan=previous.plan,
+            chatgpt_account_id=previous.chatgpt_account_id,
+            five_hour=None,
+            weekly=_window(0, RESET + timedelta(days=6), seconds=WEEK_SECONDS),
+            source="wham-usage",
+            updated_at=NOW,
+            error=None,
+            primary=_window(0, RESET + timedelta(days=6), seconds=WEEK_SECONDS),
+            secondary=None,
+            primary_label="WEEK",
+            secondary_label=None,
+            provider_account_id=previous.provider_account_id,
+        )
+
+        result = self._reconcile(previous, current)
+
+        self.assertIsNone(result.five_hour)
+        self.assertEqual(result.weekly.used_percent, 0)
+        self.assertEqual(result.primary_label, "WEEK")
+        self.assertFalse(result.warnings)
 
 
 if __name__ == "__main__":

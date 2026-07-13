@@ -4,6 +4,12 @@ from dataclasses import replace
 from datetime import datetime
 
 from zcounter.models import QuotaSnapshot, RateWindow
+from zcounter.providers.codex.usage_api import (
+    FIVE_HOUR_SECONDS,
+    WEEK_SECONDS,
+    rebuild_codex_display,
+    window_label_from_seconds,
+)
 
 
 # Heuristic for transient near-zero values from OpenAI wham/usage.  Small
@@ -41,24 +47,49 @@ def preserve_unreset_codex_windows(
     if held_five_hour:
         _append_warning(
             warnings,
-            "Codex 5H usage near zero without reset evidence; previous value retained",
+            _retention_warning(cached.five_hour),
         )
     if held_weekly:
         _append_warning(
             warnings,
-            "Codex weekly usage near zero without reset evidence; previous value retained",
+            _retention_warning(cached.weekly),
         )
 
+    extra = _extra_display_windows(fresh)
+    primary, secondary, primary_label, secondary_label = rebuild_codex_display(
+        five_hour,
+        weekly,
+        *extra,
+    )
     return replace(
         fresh,
         five_hour=five_hour,
         weekly=weekly,
-        # Codex provider snapshots expose the same two windows through the
-        # generic primary/secondary aliases used by the UI and CLI.
-        primary=five_hour if fresh.primary is not None else None,
-        secondary=weekly if fresh.secondary is not None else None,
+        primary=primary,
+        secondary=secondary,
+        primary_label=primary_label,
+        secondary_label=secondary_label,
         warnings=tuple(warnings),
     )
+
+
+def _retention_warning(window: RateWindow | None) -> str:
+    label = window_label_from_seconds(window.window_seconds if window else None)
+    return (
+        f"Codex {label} usage near zero without reset evidence; "
+        "previous value retained"
+    )
+
+
+def _extra_display_windows(snapshot: QuotaSnapshot) -> tuple[RateWindow, ...]:
+    extras: list[RateWindow] = []
+    for window in (snapshot.primary, snapshot.secondary):
+        if window is None:
+            continue
+        if window.window_seconds in (FIVE_HOUR_SECONDS, WEEK_SECONDS):
+            continue
+        extras.append(window)
+    return tuple(extras)
 
 
 def _append_warning(warnings: list[str], warning: str) -> None:
@@ -72,6 +103,8 @@ def _preserve_window(
     now: datetime,
 ) -> tuple[RateWindow | None, bool]:
     if previous is None or current is None:
+        return current, False
+    if previous.window_seconds != current.window_seconds:
         return current, False
     if not _is_unreset_near_zero_drop(previous, current, now):
         return current, False
