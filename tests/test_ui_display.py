@@ -62,13 +62,13 @@ class UIDisplayTests(unittest.TestCase):
             secondary=RateWindow(1.0, 99.0, reset_at, None),
             tertiary=RateWindow(0.0, 100.0, reset_at, None),
             primary_label="Total",
-            secondary_label="Auto(+Composer)",
+            secondary_label="First-party models",
             tertiary_label="API",
         )
         row = format_cursor_row(snapshot)
         self.assertIn("rock@zurg.jp", row)
         self.assertIn("Total 99%", row)
-        self.assertIn("Auto(+Composer) 99%", row)
+        self.assertIn("First-party models 99%", row)
         self.assertIn("API 100%", row)
         self.assertIn("6/28", row)
 

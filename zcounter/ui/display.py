@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from zcounter.providers.cursor.provider import CURSOR_FIRST_PARTY_LABEL
 from zcounter.models import QuotaSnapshot, RateWindow, utc_now
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -198,12 +199,12 @@ def format_cursor_row(snapshot: QuotaSnapshot) -> str:
     secondary = display_secondary(snapshot)
     tertiary = display_tertiary(snapshot)
     total = f"Total {format_percent(primary)}"
-    auto = f"{snapshot.secondary_label or 'Auto'} {format_percent(secondary)}"
+    first_party = f"{snapshot.secondary_label or CURSOR_FIRST_PARTY_LABEL} {format_percent(secondary)}"
     api = f"{format_percent(tertiary)}" if tertiary is not None else None
     reset = format_cursor_billing_reset(
         primary.reset_at if primary is not None else None,
     )
-    parts = [total, auto]
+    parts = [total, first_party]
     if api is not None:
         parts.append(f"API {api}")
     parts.append(reset)
