@@ -19,7 +19,7 @@ STATUS_ERROR = "error"
 
 EMAIL_WIDTH = 20
 CURSOR_QUOTA_WIDTH = 52
-REFRESH_SECONDS = 300
+REFRESH_SECONDS = 180
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
