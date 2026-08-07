@@ -119,7 +119,7 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["footer"]["reset"], "6/28(日) 9:36")
         self.assertEqual(cursor["footer"]["pace_total"], "4.1%/d")
         self.assertEqual(cursor["footer"]["pace_total_level"], "safe")
-        self.assertEqual(cursor["footer"]["pace_first_party"], "3.0%/d")
+        self.assertEqual(cursor["footer"]["pace_first_party"], "3.0%/d (4.5%/d)")
         self.assertEqual(cursor["footer"]["pace_first_party_level"], "safe")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
 
@@ -164,7 +164,7 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(account["cursor"]["footer"]["pace_level"], "safe")
         self.assertEqual(account["cursor"]["footer"]["pace_total"], "4.1%/d")
         self.assertEqual(account["cursor"]["footer"]["pace_total_level"], "safe")
-        self.assertEqual(account["cursor"]["footer"]["pace_first_party"], "2.6%/d")
+        self.assertEqual(account["cursor"]["footer"]["pace_first_party"], "2.6%/d (3.9%/d)")
         self.assertEqual(account["cursor"]["footer"]["pace_first_party_level"], "warning")
 
     def test_codex_metrics_keep_reset_on_both(self) -> None:

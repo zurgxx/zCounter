@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from zcounter.providers.cursor.provider import CURSOR_FIRST_PARTY_LABEL
@@ -168,6 +168,51 @@ def daily_pace_per_day(window: RateWindow | None, now: datetime | None = None) -
     if remaining_days <= 0:
         return None
     return remaining_percent / remaining_days
+
+
+def format_daily_pace_with_weekday(window: RateWindow | None, now: datetime | None = None) -> str:
+    base = format_daily_pace(window, now)
+    weekday = _format_weekday_pace(window, now, base)
+    if weekday is None:
+        return base
+    return f"{base} ({weekday})"
+
+
+def _format_weekday_pace(
+    window: RateWindow | None,
+    now: datetime | None,
+    base: str,
+) -> str | None:
+    if base in ("-", "now"):
+        return None
+    remaining = _remaining_until_reset(window, now)
+    if remaining is None:
+        return None
+    remaining_seconds, remaining_percent = remaining
+    assert window is not None
+    weekday_seconds = _weekday_seconds_between(_local_now(now), window.reset_at.astimezone())
+    if weekday_seconds <= 0:
+        return None
+    if remaining_seconds < PACE_HOURLY_THRESHOLD_SECONDS:
+        weekday_hours = weekday_seconds / 3600
+        return f"{remaining_percent / weekday_hours:.1f}%/h"
+    weekday_days = weekday_seconds / 86400
+    return f"{remaining_percent / weekday_days:.1f}%/d"
+
+
+def _weekday_seconds_between(start: datetime, end: datetime) -> float:
+    # Only Sat/Sun are excluded; holidays are intentionally ignored.
+    if end <= start:
+        return 0.0
+    total = 0.0
+    cursor = start
+    while cursor < end:
+        next_midnight = datetime.combine(cursor.date() + timedelta(days=1), time.min, tzinfo=cursor.tzinfo)
+        day_end = min(next_midnight, end)
+        if cursor.weekday() < 5:
+            total += (day_end - cursor).total_seconds()
+        cursor = day_end
+    return total
 
 
 def _remaining_until_reset(
