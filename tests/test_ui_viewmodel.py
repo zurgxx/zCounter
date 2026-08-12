@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import unittest
 from datetime import datetime, timezone
 
@@ -60,6 +61,19 @@ def _snapshot(
 
 
 class UIViewModelTests(unittest.TestCase):
+    def test_payload_hides_claude_account(self) -> None:
+        claude_snapshot = replace(_snapshot(), provider="claude")
+
+        payload = build_payload(
+            [(_snapshot(), STATUS_OK), (claude_snapshot, STATUS_OK)],
+            datetime(2026, 5, 31, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(len(payload["accounts"]), 1)
+        self.assertEqual(payload["accounts"][0]["provider"], "Codex")
+        self.assertEqual(payload["critical_count"], 0)
+        self.assertEqual(payload["warning_count"], 0)
+
     def test_payload_uses_local_part_and_critical_level(self) -> None:
         payload = build_payload(
             [(_snapshot(remaining=9.4), STATUS_OK)],

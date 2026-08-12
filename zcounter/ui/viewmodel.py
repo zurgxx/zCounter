@@ -70,7 +70,12 @@ def build_payload(
     rows: list[tuple[QuotaSnapshot, str]],
     updated_at: datetime,
 ) -> dict[str, Any]:
-    accounts = [_account_payload(snapshot, status, updated_at) for snapshot, status in rows]
+    accounts = [
+        _account_payload(snapshot, status, updated_at)
+        for snapshot, status in rows
+        # Claude は一旦解約中のため、表示だけ一時的に停止する。
+        if snapshot.provider != "claude"
+    ]
     return {
         "accounts": accounts,
         "critical_count": sum(account["level"] == LEVEL_CRITICAL for account in accounts),
