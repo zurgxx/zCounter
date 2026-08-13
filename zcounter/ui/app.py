@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from threading import Event, Thread
 import time
 
 from zcounter.ui.webview_api import WebviewAPI
+from zcounter.ui.window_state import (
+    WindowGeometryStore,
+    load_window_geometry,
+    restore_window_geometry,
+    window_state_path,
+)
 
 WINDOW_WIDTH = 364
 WINDOW_HEIGHT = 860
@@ -64,6 +71,9 @@ def _start_resume_monitor(window) -> Event:
 
 
 def run() -> None:
+    # Wayland does not expose reliable global window coordinates to clients.
+    # Use X11/XWayland for this process so multi-monitor geometry can be saved.
+    os.environ["GDK_BACKEND"] = "x11"
     try:
         import webview
     except ImportError as exc:
@@ -77,15 +87,29 @@ def run() -> None:
         raise SystemExit(f"UI asset was not found: {html_path}")
 
     api = WebviewAPI()
+    saved_geometry = load_window_geometry()
+    restored_args = {}
+    if saved_geometry is not None:
+        try:
+            screens = webview.screens
+            restored_args = restore_window_geometry(saved_geometry, screens, webview.renderer)
+        except Exception:
+            logger.debug("failed to inspect screens for window restore", exc_info=True)
+
+    window_args = {
+        "width": WINDOW_WIDTH,
+        "height": WINDOW_HEIGHT,
+        "resizable": True,
+        "on_top": True,
+    }
+    window_args.update(restored_args)
     window = webview.create_window(
         "zCounter",
         html_path.as_uri(),
         js_api=api,
-        width=WINDOW_WIDTH,
-        height=WINDOW_HEIGHT,
-        resizable=True,
-        on_top=True,
+        **window_args,
     )
     if window is not None:
+        WindowGeometryStore(window_state_path(), saved_geometry).attach(window)
         _start_resume_monitor(window)
     webview.start()
