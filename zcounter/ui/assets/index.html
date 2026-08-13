@@ -120,6 +120,8 @@
     const refreshButton = document.getElementById("refresh");
     let lastUpdatedAt = null;
     let countdownTimer = null;
+    let resumeRefreshTimer = null;
+    let refreshInFlight = false;
     const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     function formatUpdatedAt(updatedAt) {
       const date = new Date(updatedAt);
@@ -158,6 +160,13 @@
       if (countdownTimer) window.clearInterval(countdownTimer);
       updateFooterMeta();
       countdownTimer = window.setInterval(updateFooterMeta, 1000);
+    }
+    function refreshAfterResume() {
+      if (resumeRefreshTimer) window.clearTimeout(resumeRefreshTimer);
+      resumeRefreshTimer = window.setTimeout(() => {
+        resumeRefreshTimer = null;
+        refresh(false);
+      }, 250);
     }
     function metricHtml(metric) {
       const paceClass = metric.pace_level || metric.level;
@@ -233,11 +242,26 @@
       }
     }
     async function refresh(userInitiated = false) {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
       refreshButton.disabled = true; refreshButton.textContent = "...";
-      try { render(await window.pywebview.api.refresh(userInitiated)); }
-      finally { refreshButton.disabled = false; refreshButton.textContent = "Refresh"; }
+      try {
+        render(await window.pywebview.api.refresh(userInitiated));
+      } catch (error) {
+        console.error("refresh failed", error);
+      } finally {
+        refreshInFlight = false;
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Refresh";
+      }
     }
     refreshButton.addEventListener("click", () => refresh(true));
+    window.addEventListener("zcounterresume", refreshAfterResume);
+    window.addEventListener("pageshow", refreshAfterResume);
+    window.addEventListener("online", refreshAfterResume);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshAfterResume();
+    });
     window.addEventListener("pywebviewready", () => {
       refresh();
       setInterval(() => refresh(false), REFRESH_SECONDS * 1000);
