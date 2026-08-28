@@ -15,6 +15,7 @@ def _cursor_snapshot(
     auto_remaining: float = 45.0,
     api_remaining: float = 99.0,
     reset_at: datetime | None = None,
+    grok_bot: dict[str, object] | None = None,
 ) -> QuotaSnapshot:
     reset = reset_at or datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
     return QuotaSnapshot(
@@ -32,6 +33,7 @@ def _cursor_snapshot(
         primary_label="Total",
         secondary_label="First-party models",
         tertiary_label="API",
+        details={"grok_bot": grok_bot} if grok_bot is not None else None,
     )
 
 
@@ -136,6 +138,33 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["footer"]["pace_first_party"], "3.0%/d (4.5%/d)")
         self.assertEqual(cursor["footer"]["pace_first_party_level"], "safe")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
+        self.assertIsNone(cursor["grok_bot"])
+
+    def test_cursor_payload_includes_grok_bot_as_separate_weekly_quota(self) -> None:
+        payload = build_payload(
+            [
+                (
+                    _cursor_snapshot(
+                        grok_bot={
+                            "label": "Grok Bot",
+                            "period": "Weekly",
+                            "remaining_percent": 99.0,
+                            "reset_at": "2026-06-20T00:36:00Z",
+                        }
+                    ),
+                    STATUS_OK,
+                )
+            ],
+            datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc),
+        )
+
+        grok = payload["accounts"][0]["cursor"]["grok_bot"]
+        self.assertEqual(grok["label"], "Grok Bot")
+        self.assertEqual(grok["period"], "Weekly")
+        self.assertEqual(grok["remaining_percent"], 99)
+        self.assertEqual(grok["reset"], "6/20(土)")
+        self.assertEqual(grok["reset_detail"], "7 days left")
+        self.assertEqual(grok["separate_label"], "Separate weekly pool")
 
     def test_cursor_uses_pace_for_warning_and_critical(self) -> None:
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)

@@ -132,6 +132,10 @@ def _quota_entries(snapshot: QuotaSnapshot) -> list[tuple[str, float]]:
         if duration is not None:
             known_durations.add(duration)
 
+    grok_remaining = _grok_bot_remaining_percent(snapshot)
+    if grok_remaining is not None:
+        entries.append(("grok_bot_weekly", grok_remaining))
+
     return entries
 
 
@@ -143,6 +147,21 @@ def _duration_key(window: RateWindow) -> tuple[int | None, int | None] | None:
 
 def _remaining_percent(window: RateWindow) -> float | None:
     value = window.remaining_percent
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    if not math.isfinite(value):
+        return None
+    return max(0.0, min(100.0, value))
+
+
+def _grok_bot_remaining_percent(snapshot: QuotaSnapshot) -> float | None:
+    if snapshot.provider != "cursor" or not isinstance(snapshot.details, dict):
+        return None
+    grok_bot = snapshot.details.get("grok_bot")
+    if not isinstance(grok_bot, dict):
+        return None
+    value = grok_bot.get("remaining_percent")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     value = float(value)

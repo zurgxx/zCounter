@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
-from zcounter.models import QuotaSnapshot, RateWindow, parse_iso_datetime, utc_now
+from zcounter.models import QuotaSnapshot, RateWindow, isoformat_or_none, parse_iso_datetime, utc_now
 from zcounter.providers.cursor.config import CursorConfigError, load_cursor_config
 from zcounter.providers.cursor.usage_api import (
     CursorAPIError,
     CursorShapeError,
     fetch_auth_me,
+    fetch_sand_usage_status,
     fetch_usage_summary,
 )
 
@@ -18,6 +20,8 @@ class CursorUsageShapeError(Exception):
 
 CURSOR_FIRST_PARTY_LABEL = "First-party models"
 CURSOR_API_LABEL = "API"
+CURSOR_GROK_BOT_LABEL = "Grok Bot"
+CURSOR_GROK_BOT_PERIOD = "Weekly"
 
 
 def fetch_cursor_quota_if_configured() -> QuotaSnapshot | None:
@@ -40,8 +44,22 @@ def fetch_cursor_quota_if_configured() -> QuotaSnapshot | None:
     except CursorAPIError:
         user_info = None
 
+    grok_bot_usage: dict[str, Any] | None = None
     try:
-        return normalize_cursor_snapshot(usage_summary, user_info, warnings=config.warnings)
+        grok_bot_usage = normalize_grok_bot_usage(
+            fetch_sand_usage_status(config.cookie_header),
+        )
+    except Exception:
+        # Grok Bot is optional; the regular Cursor usage remains usable.
+        pass
+
+    try:
+        return normalize_cursor_snapshot(
+            usage_summary,
+            user_info,
+            warnings=config.warnings,
+            grok_bot_usage=grok_bot_usage,
+        )
     except (CursorUsageShapeError, CursorShapeError) as exc:
         return _error_snapshot(str(exc), warnings=config.warnings)
     except Exception:
@@ -52,6 +70,7 @@ def normalize_cursor_snapshot(
     usage_summary: dict[str, Any],
     user_info: dict[str, Any] | None,
     warnings: tuple[str, ...] = (),
+    grok_bot_usage: dict[str, Any] | None = None,
 ) -> QuotaSnapshot:
     primary = _primary_window(usage_summary)
     if primary is None:
@@ -61,6 +80,9 @@ def normalize_cursor_snapshot(
     tertiary = _api_window(usage_summary)
     email = _string(user_info.get("email")) if isinstance(user_info, dict) else None
     provider_account_id = _string(user_info.get("sub")) if isinstance(user_info, dict) else None
+    details = _details(usage_summary)
+    if grok_bot_usage is not None:
+        details["grok_bot"] = grok_bot_usage
     return QuotaSnapshot(
         provider="cursor",
         email=email,
@@ -79,8 +101,25 @@ def normalize_cursor_snapshot(
         updated_at=utc_now(),
         error=None,
         warnings=warnings,
-        details=_details(usage_summary),
+        details=details,
     )
+
+
+def normalize_grok_bot_usage(data: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise CursorUsageShapeError("cursor Grok Bot usage response has invalid shape")
+    usage_percent = _display_percent(data.get("usagePercent"))
+    reset_at = parse_iso_datetime(data.get("nextResetTimestampUtc"))
+    plan_label = _string(data.get("grokPlanLabel"))
+    if usage_percent is None or reset_at is None or plan_label is None:
+        raise CursorUsageShapeError("cursor Grok Bot usage response has invalid shape")
+    return {
+        "label": plan_label,
+        "period": CURSOR_GROK_BOT_PERIOD,
+        "used_percent": usage_percent,
+        "remaining_percent": max(0.0, 100.0 - usage_percent),
+        "reset_at": isoformat_or_none(reset_at),
+    }
 
 
 def _primary_window(data: dict[str, Any]) -> RateWindow | None:
@@ -184,7 +223,12 @@ def _dict_path(data: dict[str, Any], *keys: str) -> dict[str, Any] | None:
 def _display_percent(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    percent = float(value)
+    try:
+        percent = float(value)
+    except (OverflowError, ValueError):
+        return None
+    if not math.isfinite(percent):
+        return None
     if percent <= 0:
         return 0.0
     if percent > 100:

@@ -45,9 +45,18 @@ def _codex_snapshot(
     )
 
 
-def _cursor_snapshot(email: str = "cursor@example.com") -> QuotaSnapshot:
+def _cursor_snapshot(
+    email: str = "cursor@example.com",
+    *,
+    grok_remaining: float | None = None,
+) -> QuotaSnapshot:
     total = RateWindow(46.0, 54.0, None, None)
     first_party = RateWindow(63.0, 37.0, None, None)
+    details = (
+        {"grok_bot": {"remaining_percent": grok_remaining}}
+        if grok_remaining is not None
+        else None
+    )
     return QuotaSnapshot(
         provider="cursor",
         email=email,
@@ -63,6 +72,7 @@ def _cursor_snapshot(email: str = "cursor@example.com") -> QuotaSnapshot:
         source="cursor-usage-summary",
         updated_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
         provider_account_id="cursor-id",
+        details=details,
     )
 
 
@@ -89,6 +99,17 @@ class UsageLogTests(unittest.TestCase):
         self.assertIn("cursor:total=54%,first_party_models=37%", line)
         self.assertEqual(line.count("\n"), 1)
 
+    def test_cursor_grok_weekly_is_added_after_existing_cursor_quota_entries(self) -> None:
+        line = format_usage_log_line(
+            [_cursor_snapshot(grok_remaining=99.0)],
+            datetime(2026, 8, 20, 14, 5, 12, tzinfo=timezone.utc),
+        )
+
+        self.assertIn(
+            "cursor:total=54%,first_party_models=37%,grok_bot_weekly=99%",
+            line,
+        )
+
     def test_missing_quota_is_omitted_and_accounts_are_dynamic(self) -> None:
         snapshot = _codex_snapshot("codex-main@example.com", five_hour=None, weekly=41.0)
 
@@ -97,6 +118,15 @@ class UsageLogTests(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertIn("codex-main:weekly=41%", line)
         self.assertNotIn("five_hour", line)
+
+    def test_cursor_without_grok_omits_optional_grok_log_entry(self) -> None:
+        line = format_usage_log_line(
+            [_cursor_snapshot()],
+            datetime.now(timezone.utc),
+        )
+
+        self.assertIsNotNone(line)
+        self.assertNotIn("grok_bot_weekly", line)
 
     def test_error_snapshot_does_not_produce_partial_or_stale_log_line(self) -> None:
         line = format_usage_log_line(

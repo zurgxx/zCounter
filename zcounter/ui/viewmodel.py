@@ -3,8 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from zcounter.models import QuotaSnapshot, RateWindow
-from zcounter.providers.cursor.provider import CURSOR_FIRST_PARTY_LABEL
+from zcounter.models import QuotaSnapshot, RateWindow, parse_iso_datetime
+from zcounter.providers.cursor.provider import (
+    CURSOR_FIRST_PARTY_LABEL,
+    CURSOR_GROK_BOT_LABEL,
+    CURSOR_GROK_BOT_PERIOD,
+)
 from zcounter.providers.codex.consistency import preserve_unreset_codex_windows
 from zcounter.ui.display import (
     STATUS_ERROR,
@@ -17,6 +21,8 @@ from zcounter.ui.display import (
     display_tertiary,
     format_daily_pace,
     format_daily_pace_with_weekday,
+    format_cursor_grok_reset,
+    format_cursor_grok_reset_detail,
     format_reset_at,
     format_reset_credits_available_label,
     format_reset_credits_expires,
@@ -183,6 +189,7 @@ def _cursor_account_payload(
                 "pace_first_party_level": first_party_pace_level,
                 "pace_level": cursor_pace_level,
             },
+            "grok_bot": _cursor_grok_payload(snapshot, now),
         }
 
     return {
@@ -197,6 +204,33 @@ def _cursor_account_payload(
         "display_mode": "cursor-hero",
         "cursor": cursor_layout,
         "metrics": [],
+    }
+
+
+def _cursor_grok_payload(
+    snapshot: QuotaSnapshot,
+    now: datetime,
+) -> dict[str, Any] | None:
+    details = snapshot.details
+    raw = details.get("grok_bot") if isinstance(details, dict) else None
+    if not isinstance(raw, dict):
+        return None
+
+    remaining = raw.get("remaining_percent")
+    reset_at = parse_iso_datetime(raw.get("reset_at"))
+    if isinstance(remaining, bool) or not isinstance(remaining, (int, float)) or reset_at is None:
+        return None
+
+    remaining = max(0.0, min(100.0, float(remaining)))
+    label = raw.get("label") if isinstance(raw.get("label"), str) else CURSOR_GROK_BOT_LABEL
+    period = raw.get("period") if isinstance(raw.get("period"), str) else CURSOR_GROK_BOT_PERIOD
+    return {
+        "label": label,
+        "period": period,
+        "remaining_percent": round(remaining),
+        "reset": format_cursor_grok_reset(reset_at),
+        "reset_detail": format_cursor_grok_reset_detail(reset_at, now),
+        "separate_label": "Separate weekly pool",
     }
 
 

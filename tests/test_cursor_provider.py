@@ -8,7 +8,10 @@ from unittest import mock
 
 from zcounter.cli import _row
 from zcounter.providers.cursor import provider, usage_api
-from zcounter.providers.cursor.provider import normalize_cursor_snapshot
+from zcounter.providers.cursor.provider import (
+    normalize_cursor_snapshot,
+    normalize_grok_bot_usage,
+)
 from zcounter.providers.cursor.usage_api import CursorAPIError, CursorShapeError, CursorUnauthorizedError
 
 
@@ -44,6 +47,37 @@ class CursorProviderTests(unittest.TestCase):
         self.assertAlmostEqual(snapshot.tertiary.used_percent, 0.7111111111111111)
         self.assertAlmostEqual(snapshot.primary.remaining_percent, 99.55897435897436)
         self.assertAlmostEqual(snapshot.details["api_used_percent"], 0.7111111111111111)
+
+    def test_grok_usage_converts_used_percent_and_keeps_reset_timestamp(self) -> None:
+        grok = normalize_grok_bot_usage(
+            {
+                "usagePercent": 1,
+                "nextResetTimestampUtc": "2026-09-02T00:00:00.000Z",
+                "grokPlanLabel": "Grok Bot",
+            }
+        )
+        snapshot = normalize_cursor_snapshot(
+            {"individualUsage": {"plan": {"totalPercentUsed": 30.0}}},
+            None,
+            grok_bot_usage=grok,
+        )
+
+        self.assertEqual(grok["label"], "Grok Bot")
+        self.assertEqual(grok["period"], "Weekly")
+        self.assertEqual(grok["used_percent"], 1.0)
+        self.assertEqual(grok["remaining_percent"], 99.0)
+        self.assertEqual(grok["reset_at"], "2026-09-02T00:00:00Z")
+        self.assertEqual(snapshot.details["grok_bot"], grok)
+
+    def test_invalid_grok_usage_shape_is_rejected(self) -> None:
+        with self.assertRaises(provider.CursorUsageShapeError):
+            normalize_grok_bot_usage(
+                {
+                    "usagePercent": "1",
+                    "nextResetTimestampUtc": "2026-09-02T00:00:00Z",
+                    "grokPlanLabel": "Grok Bot",
+                }
+            )
 
     def test_cursor_fractional_percent_fields_are_kept_as_display_percent(self) -> None:
         snapshot = normalize_cursor_snapshot(
@@ -237,13 +271,81 @@ class CursorProviderTests(unittest.TestCase):
                         "fetch_auth_me",
                         side_effect=CursorAPIError("cursor API request failed"),
                     ):
-                        snapshot = provider.fetch_cursor_quota_if_configured()
+                        with mock.patch.object(provider, "fetch_sand_usage_status", return_value={}):
+                            snapshot = provider.fetch_cursor_quota_if_configured()
 
         self.assertIsNotNone(snapshot)
         self.assertIsNone(snapshot.error)
         self.assertIsNone(snapshot.email)
         self.assertIsNotNone(snapshot.primary)
         self.assertEqual(snapshot.primary.used_percent, 30.0)
+
+    def test_grok_success_is_attached_without_changing_cursor_windows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "cursor.toml"
+            config_path.write_text('[cursor]\nenabled = true\ncookie_header = "redacted"\n', encoding="utf-8")
+            with mock.patch.dict("os.environ", {"ZCOUNTER_CURSOR_CONFIG": str(config_path)}, clear=False):
+                with mock.patch.object(
+                    provider,
+                    "fetch_usage_summary",
+                    return_value={"individualUsage": {"plan": {"totalPercentUsed": 30.0}}},
+                ):
+                    with mock.patch.object(provider, "fetch_auth_me", return_value=None):
+                        with mock.patch.object(
+                            provider,
+                            "fetch_sand_usage_status",
+                            return_value={
+                                "usagePercent": 1,
+                                "nextResetTimestampUtc": "2026-09-02T00:00:00Z",
+                                "grokPlanLabel": "Grok Bot",
+                            },
+                        ):
+                            snapshot = provider.fetch_cursor_quota_if_configured()
+
+        self.assertIsNotNone(snapshot)
+        self.assertIsNone(snapshot.error)
+        self.assertEqual(snapshot.primary.used_percent, 30.0)
+        self.assertEqual(snapshot.secondary, None)
+        self.assertEqual(snapshot.details["grok_bot"]["remaining_percent"], 99.0)
+        self.assertEqual(snapshot.details["grok_bot"]["reset_at"], "2026-09-02T00:00:00Z")
+
+    def test_grok_failures_are_optional_and_keep_regular_cursor_usage(self) -> None:
+        failures = (
+            CursorUnauthorizedError("cursor session is invalid or expired"),
+            CursorAPIError("cursor API request timed out"),
+            TimeoutError("cursor API request timed out"),
+            CursorShapeError("cursor API response has invalid shape"),
+        )
+        for failure in failures:
+            with self.subTest(type=type(failure).__name__):
+                with tempfile.TemporaryDirectory() as tmp:
+                    config_path = Path(tmp) / "cursor.toml"
+                    config_path.write_text(
+                        '[cursor]\nenabled = true\ncookie_header = "redacted"\n',
+                        encoding="utf-8",
+                    )
+                    with mock.patch.dict(
+                        "os.environ",
+                        {"ZCOUNTER_CURSOR_CONFIG": str(config_path)},
+                        clear=False,
+                    ):
+                        with mock.patch.object(
+                            provider,
+                            "fetch_usage_summary",
+                            return_value={"individualUsage": {"plan": {"totalPercentUsed": 30.0}}},
+                        ):
+                            with mock.patch.object(provider, "fetch_auth_me", return_value=None):
+                                with mock.patch.object(
+                                    provider,
+                                    "fetch_sand_usage_status",
+                                    side_effect=failure,
+                                ):
+                                    snapshot = provider.fetch_cursor_quota_if_configured()
+
+                self.assertIsNotNone(snapshot)
+                self.assertIsNone(snapshot.error)
+                self.assertEqual(snapshot.primary.used_percent, 30.0)
+                self.assertNotIn("grok_bot", snapshot.details)
 
     def test_unauthorized_error_is_secret_free(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
