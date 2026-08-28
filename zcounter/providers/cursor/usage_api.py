@@ -8,6 +8,8 @@ from typing import Any
 
 AUTH_ME_URL = "https://cursor.com/api/auth/me"
 USAGE_SUMMARY_URL = "https://cursor.com/api/usage-summary"
+SAND_USAGE_STATUS_URL = "https://cursor.com/api/dashboard/get-sand-usage-status"
+CURSOR_ORIGIN = "https://cursor.com"
 USER_AGENT = "zCounter/0.2"
 
 
@@ -31,6 +33,20 @@ def fetch_usage_summary(cookie_header: str, timeout_seconds: float = 20.0) -> di
     return _fetch_json(USAGE_SUMMARY_URL, cookie_header, timeout_seconds)
 
 
+def fetch_sand_usage_status(cookie_header: str, timeout_seconds: float = 20.0) -> dict[str, Any]:
+    request = urllib.request.Request(
+        SAND_USAGE_STATUS_URL,
+        data=b"{}",
+        method="POST",
+        headers={
+            "Cookie": cookie_header,
+            "Origin": CURSOR_ORIGIN,
+            "Content-Type": "application/json",
+        },
+    )
+    return _fetch_request_json(request, timeout_seconds)
+
+
 def _fetch_json(url: str, cookie_header: str, timeout_seconds: float) -> dict[str, Any]:
     request = urllib.request.Request(
         url,
@@ -41,6 +57,13 @@ def _fetch_json(url: str, cookie_header: str, timeout_seconds: float) -> dict[st
             "User-Agent": USER_AGENT,
         },
     )
+    return _fetch_request_json(request, timeout_seconds)
+
+
+def _fetch_request_json(
+    request: urllib.request.Request,
+    timeout_seconds: float,
+) -> dict[str, Any]:
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             raw = response.read()

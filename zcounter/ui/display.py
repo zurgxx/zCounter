@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -103,6 +104,24 @@ def format_cursor_billing_reset(reset_at: datetime | None) -> str:
         return "-"
     local_reset = reset_at.astimezone()
     return f"{_format_local_date(local_reset)} {_format_local_time(local_reset)}"
+
+
+def format_cursor_grok_reset(reset_at: datetime | None) -> str:
+    if reset_at is None:
+        return "-"
+    return _format_local_date(reset_at.astimezone())
+
+
+def format_cursor_grok_reset_detail(
+    reset_at: datetime | None,
+    now: datetime | None = None,
+) -> str:
+    if reset_at is None:
+        return "-"
+    remaining_seconds = (reset_at.astimezone() - _local_now(now)).total_seconds()
+    if remaining_seconds <= 0:
+        return "reset due"
+    return f"{math.ceil(remaining_seconds / 86400)} days left"
 
 
 def format_credit_expires_at(expires_at: datetime | None) -> str:
