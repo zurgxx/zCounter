@@ -91,7 +91,7 @@ class UIDisplayTests(unittest.TestCase):
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc).astimezone()
         snapshot = QuotaSnapshot(
             provider="cursor",
-            email="rock@zurg.jp",
+            email="user@example.com",
             plan="Cursor Pro",
             chatgpt_account_id=None,
             five_hour=None,
@@ -106,7 +106,7 @@ class UIDisplayTests(unittest.TestCase):
             tertiary_label="API",
         )
         row = format_cursor_row(snapshot)
-        self.assertIn("rock@zurg.jp", row)
+        self.assertIn("user@example.com", row)
         self.assertIn("Total 99%", row)
         self.assertIn("First-party models 99%", row)
         self.assertIn("API 100%", row)
@@ -116,7 +116,7 @@ class UIDisplayTests(unittest.TestCase):
         reset_at = datetime(2026, 5, 31, 0, 54, tzinfo=timezone.utc).astimezone()
         snapshot = QuotaSnapshot(
             provider="codex",
-            email="rock@zurg.jp",
+            email="user@example.com",
             plan="plus",
             chatgpt_account_id="id",
             five_hour=RateWindow(46.0, 54.0, datetime.now(tz=timezone.utc), 300),

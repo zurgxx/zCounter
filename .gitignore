@@ -10,3 +10,5 @@ __pycache__/
 cursor.local.toml
 *.secret.toml
 .env
+*.auth.json
+.credentials.json

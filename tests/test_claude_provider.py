@@ -40,7 +40,7 @@ class ClaudeProviderTests(unittest.TestCase):
             {
                 "account": {
                     "email": "user@example.com",
-                    "uuid": "449a2cf0-5d3c-4d29-8fb6-13ad4c798f77",
+                    "uuid": "00000000-0000-4000-8000-000000000000",
                     "has_claude_pro": True,
                     "has_claude_max": False,
                 },
@@ -259,7 +259,7 @@ class ClaudeProviderTests(unittest.TestCase):
                         return_value={
                             "account": {
                                 "email": "user@example.com",
-                                "uuid": "449a2cf0-5d3c-4d29-8fb6-13ad4c798f77",
+                                "uuid": "00000000-0000-4000-8000-000000000000",
                             }
                         },
                     ) as fetch_profile_mock:

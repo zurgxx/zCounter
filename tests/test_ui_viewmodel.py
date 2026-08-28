@@ -20,7 +20,7 @@ def _cursor_snapshot(
     reset = reset_at or datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
     return QuotaSnapshot(
         provider="cursor",
-        email="rock@example.com",
+        email="user@example.com",
         plan="Cursor Pro",
         chatgpt_account_id=None,
         five_hour=None,
@@ -41,7 +41,7 @@ def _snapshot(
     *,
     remaining: float = 50.0,
     error: str | None = None,
-    email: str | None = "rock@example.com",
+    email: str | None = "user@example.com",
 ) -> QuotaSnapshot:
     window = None if error else RateWindow(100.0 - remaining, remaining, None, 300)
     return QuotaSnapshot(
@@ -83,7 +83,7 @@ class UIViewModelTests(unittest.TestCase):
         )
 
         self.assertEqual(payload["critical_count"], 1)
-        self.assertEqual(payload["accounts"][0]["account"], "rock")
+        self.assertEqual(payload["accounts"][0]["account"], "user")
         self.assertEqual(payload["accounts"][0]["status_label"], "Critical")
         self.assertEqual(payload["accounts"][0]["metrics"][0]["remaining_percent"], 9)
 
@@ -113,7 +113,7 @@ class UIViewModelTests(unittest.TestCase):
 
         snapshot, status = rows[0]
         self.assertEqual(status, STATUS_STALE)
-        self.assertEqual(snapshot.email, "rock@example.com")
+        self.assertEqual(snapshot.email, "user@example.com")
         self.assertEqual(snapshot.primary.remaining_percent, 54)
 
     def test_cursor_hero_layout_footer_and_sub_metrics(self) -> None:
@@ -223,7 +223,7 @@ class UIViewModelTests(unittest.TestCase):
         week = RateWindow(0.0, 100.0, datetime(2026, 7, 20, tzinfo=timezone.utc), 10_080, 604_800)
         snapshot = QuotaSnapshot(
             provider="codex",
-            email="rock@example.com",
+            email="user@example.com",
             plan="plus",
             chatgpt_account_id="account-id",
             five_hour=None,

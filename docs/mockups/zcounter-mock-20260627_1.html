@@ -242,7 +242,7 @@
   <script>
     const VARIANT_NOTES = {
       a: "案A — Cursor の Reset/Pace と同型の2列フッター。複数枚あるとき Expires は期限を「、」で並列表示。残数 0 は非表示。",
-      b: "案B — Safe pill の上に小さなバッジ（↻×N）。縦幅はほぼ増えない。期限はバッジ下の1行。rock は 0 枚で非表示の例。",
+      b: "案B — Safe pill の上に小さなバッジ（↻×N）。縦幅はほぼ増えない。期限はバッジ下の1行。account-b は 0 枚で非表示の例。",
       c: "案C — metrics 下の全幅グレー帯。アイコン＋残数＋期限を1ブロックにまとめる。情報密度は中程度。",
     };
 
@@ -250,8 +250,8 @@
       accounts: [
         {
           provider: "Codex",
-          account: "zurgxx",
-          email: "zurgxx@gmail.com",
+          account: "account-a",
+          email: "user@example.com",
           plan: "Plus",
           level: "safe",
           status: "ok",
@@ -265,8 +265,8 @@
         },
         {
           provider: "Codex",
-          account: "rock",
-          email: "rock@zurg.jp",
+          account: "account-b",
+          email: "user@example.com",
           plan: "Plus",
           level: "safe",
           status: "ok",
@@ -280,8 +280,8 @@
         },
         {
           provider: "Cursor",
-          account: "rock",
-          email: "rock@zurg.jp",
+          account: "account-b",
+          email: "user@example.com",
           plan: "Cursor Pro",
           level: "warning",
           status: "ok",
@@ -299,8 +299,8 @@
         },
         {
           provider: "Claude",
-          account: "zurgxx",
-          email: "zurgxx@gmail.com",
+          account: "account-a",
+          email: "user@example.com",
           plan: "Pro",
           level: "safe",
           status: "ok",

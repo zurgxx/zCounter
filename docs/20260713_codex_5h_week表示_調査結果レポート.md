@@ -532,4 +532,4 @@ zCounter は primary→five_hour(5H), secondary→weekly(WEEK) と固定マッ�
 
 ---
 
-*調査実施: zCounter リポジトリ `/home/rock/work/zCounter`、実 API 2 アカウント、コード静的解析*
+*調査実施: zCounter リポジトリ `<repo-root>`、実 API 2 アカウント、コード静的解析*
