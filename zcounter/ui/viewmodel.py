@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from zcounter.models import QuotaSnapshot, RateWindow
+from zcounter.providers.cursor.provider import CURSOR_FIRST_PARTY_LABEL
 from zcounter.providers.codex.consistency import preserve_unreset_codex_windows
 from zcounter.ui.display import (
     STATUS_ERROR,
@@ -15,6 +16,7 @@ from zcounter.ui.display import (
     display_secondary,
     display_tertiary,
     format_daily_pace,
+    format_daily_pace_with_weekday,
     format_reset_at,
     format_reset_credits_available_label,
     format_reset_credits_expires,
@@ -68,7 +70,12 @@ def build_payload(
     rows: list[tuple[QuotaSnapshot, str]],
     updated_at: datetime,
 ) -> dict[str, Any]:
-    accounts = [_account_payload(snapshot, status, updated_at) for snapshot, status in rows]
+    accounts = [
+        _account_payload(snapshot, status, updated_at)
+        for snapshot, status in rows
+        # Claude は一旦解約中のため、表示だけ一時的に停止する。
+        if snapshot.provider != "claude"
+    ]
     return {
         "accounts": accounts,
         "critical_count": sum(account["level"] == LEVEL_CRITICAL for account in accounts),
@@ -146,7 +153,7 @@ def _cursor_account_payload(
     total_metric = _metric_payload(snapshot.primary_label or "Total", primary, now, cursor=True)
     sub_metrics: list[dict[str, Any]] = []
     secondary_metric = _metric_payload(
-        snapshot.secondary_label or "Auto(+Composer)",
+        snapshot.secondary_label or CURSOR_FIRST_PARTY_LABEL,
         secondary,
         now,
         cursor=True,
@@ -164,7 +171,7 @@ def _cursor_account_payload(
 
     cursor_layout: dict[str, Any] | None = None
     if total_metric is not None:
-        composer_pace_level = _cursor_pace_level(daily_pace_per_day(secondary, now))
+        first_party_pace_level = _cursor_pace_level(daily_pace_per_day(secondary, now))
         cursor_layout = {
             "total": total_metric,
             "sub_metrics": sub_metrics,
@@ -172,8 +179,8 @@ def _cursor_account_payload(
                 "reset": format_reset_at(primary.reset_at, now) if primary else "-",
                 "pace_total": format_daily_pace(primary, now),
                 "pace_total_level": cursor_pace_level,
-                "pace_composer": format_daily_pace(secondary, now),
-                "pace_composer_level": composer_pace_level,
+                "pace_first_party": format_daily_pace_with_weekday(secondary, now),
+                "pace_first_party_level": first_party_pace_level,
                 "pace_level": cursor_pace_level,
             },
         }

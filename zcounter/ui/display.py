@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from zcounter.providers.cursor.provider import CURSOR_FIRST_PARTY_LABEL
 from zcounter.models import QuotaSnapshot, RateWindow, utc_now
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -18,7 +19,7 @@ STATUS_ERROR = "error"
 
 EMAIL_WIDTH = 20
 CURSOR_QUOTA_WIDTH = 52
-REFRESH_SECONDS = 300
+REFRESH_SECONDS = 180
 
 
 def account_key(snapshot: QuotaSnapshot) -> str:
@@ -169,6 +170,51 @@ def daily_pace_per_day(window: RateWindow | None, now: datetime | None = None) -
     return remaining_percent / remaining_days
 
 
+def format_daily_pace_with_weekday(window: RateWindow | None, now: datetime | None = None) -> str:
+    base = format_daily_pace(window, now)
+    weekday = _format_weekday_pace(window, now, base)
+    if weekday is None:
+        return base
+    return f"{base} ({weekday})"
+
+
+def _format_weekday_pace(
+    window: RateWindow | None,
+    now: datetime | None,
+    base: str,
+) -> str | None:
+    if base in ("-", "now"):
+        return None
+    remaining = _remaining_until_reset(window, now)
+    if remaining is None:
+        return None
+    remaining_seconds, remaining_percent = remaining
+    assert window is not None
+    weekday_seconds = _weekday_seconds_between(_local_now(now), window.reset_at.astimezone())
+    if weekday_seconds <= 0:
+        return None
+    if remaining_seconds < PACE_HOURLY_THRESHOLD_SECONDS:
+        weekday_hours = weekday_seconds / 3600
+        return f"{remaining_percent / weekday_hours:.1f}%/h"
+    weekday_days = weekday_seconds / 86400
+    return f"{remaining_percent / weekday_days:.1f}%/d"
+
+
+def _weekday_seconds_between(start: datetime, end: datetime) -> float:
+    # Only Sat/Sun are excluded; holidays are intentionally ignored.
+    if end <= start:
+        return 0.0
+    total = 0.0
+    cursor = start
+    while cursor < end:
+        next_midnight = datetime.combine(cursor.date() + timedelta(days=1), time.min, tzinfo=cursor.tzinfo)
+        day_end = min(next_midnight, end)
+        if cursor.weekday() < 5:
+            total += (day_end - cursor).total_seconds()
+        cursor = day_end
+    return total
+
+
 def _remaining_until_reset(
     window: RateWindow | None,
     now: datetime | None = None,
@@ -198,12 +244,12 @@ def format_cursor_row(snapshot: QuotaSnapshot) -> str:
     secondary = display_secondary(snapshot)
     tertiary = display_tertiary(snapshot)
     total = f"Total {format_percent(primary)}"
-    auto = f"{snapshot.secondary_label or 'Auto'} {format_percent(secondary)}"
+    first_party = f"{snapshot.secondary_label or CURSOR_FIRST_PARTY_LABEL} {format_percent(secondary)}"
     api = f"{format_percent(tertiary)}" if tertiary is not None else None
     reset = format_cursor_billing_reset(
         primary.reset_at if primary is not None else None,
     )
-    parts = [total, auto]
+    parts = [total, first_party]
     if api is not None:
         parts.append(f"API {api}")
     parts.append(reset)

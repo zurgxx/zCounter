@@ -4,10 +4,13 @@ import unittest
 from datetime import datetime, timezone
 
 from zcounter.models import QuotaSnapshot, RateWindow
+from zoneinfo import ZoneInfo
+
 from zcounter.ui.display import (
     format_account_row,
     format_cursor_row,
     format_daily_pace,
+    format_daily_pace_with_weekday,
     format_status_suffix,
     format_updated_at_jst,
     format_updated_footer,
@@ -26,7 +29,7 @@ class UIDisplayTests(unittest.TestCase):
         updated = datetime(2026, 5, 29, 7, 4, 40, tzinfo=timezone.utc)
         self.assertEqual(
             format_updated_footer(updated),
-            "updated 5/29(金) 16:04:40 JST : refresh 300s",
+            "updated 5/29(金) 16:04:40 JST : refresh 180s",
         )
 
     def test_format_daily_pace(self) -> None:
@@ -47,6 +50,43 @@ class UIDisplayTests(unittest.TestCase):
         window = RateWindow(85.0, 15.0, reset_at, None)
         self.assertEqual(format_daily_pace(window, now), "1.2%/h")
 
+    def test_format_daily_pace_with_weekday_excludes_weekends(self) -> None:
+        # 2026-06-13(土) 9:36 JST -> 2026-06-28(日) 9:36 JST: 15 calendar days, 11 weekdays.
+        reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc)
+        window = RateWindow(38.0, 62.0, reset_at, None)
+        self.assertEqual(
+            format_daily_pace_with_weekday(window, now),
+            "4.1%/d (6.2%/d)",
+        )
+
+    def test_format_daily_pace_with_weekday_uses_hourly_within_24h(self) -> None:
+        # 2026-06-25(木) 21:36 JST -> 2026-06-26(金) 9:36 JST: both weekdays, no adjustment.
+        reset_at = datetime(2026, 6, 26, 0, 36, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 25, 12, 36, tzinfo=timezone.utc)
+        window = RateWindow(85.0, 15.0, reset_at, None)
+        self.assertEqual(
+            format_daily_pace_with_weekday(window, now),
+            "1.2%/h (1.2%/h)",
+        )
+
+    def test_format_daily_pace_with_weekday_hides_parenthetical_when_no_weekday_remains(
+        self,
+    ) -> None:
+        # Entire remaining window falls on Sat/Sun, so there is no weekday to divide by.
+        jst = ZoneInfo("Asia/Tokyo")
+        now = datetime(2026, 8, 8, 10, 0, tzinfo=jst)
+        reset_at = datetime(2026, 8, 9, 20, 0, tzinfo=jst)
+        window = RateWindow(80.0, 20.0, reset_at, None)
+        self.assertEqual(format_daily_pace_with_weekday(window, now), "14.1%/d")
+
+    def test_format_daily_pace_with_weekday_passes_through_now_and_dash(self) -> None:
+        reset_at = datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
+        window = RateWindow(0.0, 0.0, reset_at, None)
+        self.assertEqual(format_daily_pace_with_weekday(window, now), "now")
+        self.assertEqual(format_daily_pace_with_weekday(None, now), "-")
+
     def test_format_cursor_row(self) -> None:
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc).astimezone()
         snapshot = QuotaSnapshot(
@@ -62,13 +102,13 @@ class UIDisplayTests(unittest.TestCase):
             secondary=RateWindow(1.0, 99.0, reset_at, None),
             tertiary=RateWindow(0.0, 100.0, reset_at, None),
             primary_label="Total",
-            secondary_label="Auto(+Composer)",
+            secondary_label="First-party models",
             tertiary_label="API",
         )
         row = format_cursor_row(snapshot)
         self.assertIn("rock@zurg.jp", row)
         self.assertIn("Total 99%", row)
-        self.assertIn("Auto(+Composer) 99%", row)
+        self.assertIn("First-party models 99%", row)
         self.assertIn("API 100%", row)
         self.assertIn("6/28", row)
 

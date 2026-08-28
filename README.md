@@ -7,7 +7,7 @@
 ```bash
 python3 -m zcounter.cli
 python3 -m zcounter.cli --json
-python3 -m zcounter.ui
+GDK_BACKEND=x11 python3 -m zcounter.ui
 ```
 
 ### デスクトップ UI（v0.3）
@@ -25,6 +25,7 @@ python3 -m venv --system-site-packages .venv
 - 各アカウントをカードで表示（アカウント名、プラン、主枠・副枠の残量 %、リセット時刻）
 - 残量に応じて `Safe` / `Warning` / `Critical` を表示
 - `Refresh` ボタンと 5 分ごとの自動更新（Claude OAuth API のレート制限を避けるため CodexBar と同じ間隔）
+- 前回終了時のウィンドウ位置・サイズを復元（X11/XWayland、マルチモニター対応。保存先は `~/.config/zcounter/window.json`）
 - 取得に失敗した行は、直前の成功値を残して `Stale` または `Error` として表示
 
 UI のデザイン検討用静的モックは `docs/mockups/` に置く（運用ルールはローカル `AGENTS.md`）。

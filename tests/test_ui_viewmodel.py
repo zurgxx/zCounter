@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import unittest
 from datetime import datetime, timezone
 
@@ -29,7 +30,7 @@ def _cursor_snapshot(
         secondary=RateWindow(100.0 - auto_remaining, auto_remaining, reset, None),
         tertiary=RateWindow(100.0 - api_remaining, api_remaining, reset, None),
         primary_label="Total",
-        secondary_label="Auto(+Composer)",
+        secondary_label="First-party models",
         tertiary_label="API",
     )
 
@@ -60,6 +61,19 @@ def _snapshot(
 
 
 class UIViewModelTests(unittest.TestCase):
+    def test_payload_hides_claude_account(self) -> None:
+        claude_snapshot = replace(_snapshot(), provider="claude")
+
+        payload = build_payload(
+            [(_snapshot(), STATUS_OK), (claude_snapshot, STATUS_OK)],
+            datetime(2026, 5, 31, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(len(payload["accounts"]), 1)
+        self.assertEqual(payload["accounts"][0]["provider"], "Codex")
+        self.assertEqual(payload["critical_count"], 0)
+        self.assertEqual(payload["warning_count"], 0)
+
     def test_payload_uses_local_part_and_critical_level(self) -> None:
         payload = build_payload(
             [(_snapshot(remaining=9.4), STATUS_OK)],
@@ -112,15 +126,15 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(cursor["total"]["remaining_percent"], 62)
         self.assertNotIn("pace", cursor["total"])
         self.assertEqual(len(cursor["sub_metrics"]), 2)
-        self.assertEqual(cursor["sub_metrics"][0]["label"], "Auto(+Composer)")
+        self.assertEqual(cursor["sub_metrics"][0]["label"], "First-party models")
         self.assertEqual(cursor["sub_metrics"][0]["remaining_percent"], 45)
         self.assertEqual(cursor["sub_metrics"][1]["label"], "API")
         self.assertEqual(cursor["sub_metrics"][1]["remaining_percent"], 99)
         self.assertEqual(cursor["footer"]["reset"], "6/28(日) 9:36")
         self.assertEqual(cursor["footer"]["pace_total"], "4.1%/d")
         self.assertEqual(cursor["footer"]["pace_total_level"], "safe")
-        self.assertEqual(cursor["footer"]["pace_composer"], "3.0%/d")
-        self.assertEqual(cursor["footer"]["pace_composer_level"], "safe")
+        self.assertEqual(cursor["footer"]["pace_first_party"], "3.0%/d (4.5%/d)")
+        self.assertEqual(cursor["footer"]["pace_first_party_level"], "safe")
         self.assertEqual(cursor["footer"]["pace_level"], "safe")
 
     def test_cursor_uses_pace_for_warning_and_critical(self) -> None:
@@ -150,7 +164,7 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(critical_account["cursor"]["sub_metrics"][0]["level"], "safe")
         self.assertEqual(critical_account["cursor"]["footer"]["pace_level"], "critical")
 
-    def test_cursor_metrics_stay_safe_when_only_auto_pace_would_warn(self) -> None:
+    def test_cursor_metrics_stay_safe_when_only_first_party_pace_would_warn(self) -> None:
         reset_at = datetime(2026, 6, 28, 0, 36, tzinfo=timezone.utc)
         now = datetime(2026, 6, 13, 0, 36, tzinfo=timezone.utc)
         payload = build_payload(
@@ -164,8 +178,8 @@ class UIViewModelTests(unittest.TestCase):
         self.assertEqual(account["cursor"]["footer"]["pace_level"], "safe")
         self.assertEqual(account["cursor"]["footer"]["pace_total"], "4.1%/d")
         self.assertEqual(account["cursor"]["footer"]["pace_total_level"], "safe")
-        self.assertEqual(account["cursor"]["footer"]["pace_composer"], "2.6%/d")
-        self.assertEqual(account["cursor"]["footer"]["pace_composer_level"], "warning")
+        self.assertEqual(account["cursor"]["footer"]["pace_first_party"], "2.6%/d (3.9%/d)")
+        self.assertEqual(account["cursor"]["footer"]["pace_first_party_level"], "warning")
 
     def test_codex_metrics_keep_reset_on_both(self) -> None:
         payload = build_payload(
