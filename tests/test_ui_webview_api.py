@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+from zcounter.models import QuotaSnapshot
 from zcounter.ui.webview_api import WebviewAPI
 from tests.test_usage_log import _codex_snapshot, _cursor_snapshot
 
@@ -79,6 +80,66 @@ class WebviewAPITests(unittest.TestCase):
         self.assertFalse(payload["busy"])
         self.assertTrue(merge.called)
         append.assert_not_called()
+
+    def test_refresh_notifies_on_cursor_api_decrease_without_breaking_log(self) -> None:
+        from zcounter.models import RateWindow
+
+        def cursor_with_api(api_remaining: float) -> QuotaSnapshot:
+            snapshot = _cursor_snapshot()
+            snapshot = QuotaSnapshot(
+                provider=snapshot.provider,
+                email=snapshot.email,
+                plan=snapshot.plan,
+                chatgpt_account_id=snapshot.chatgpt_account_id,
+                five_hour=snapshot.five_hour,
+                weekly=snapshot.weekly,
+                primary=snapshot.primary,
+                secondary=snapshot.secondary,
+                tertiary=RateWindow(100.0 - api_remaining, api_remaining, None, None),
+                primary_label=snapshot.primary_label,
+                secondary_label=snapshot.secondary_label,
+                tertiary_label="API",
+                provider_account_id=snapshot.provider_account_id,
+                source=snapshot.source,
+                updated_at=snapshot.updated_at,
+            )
+            return snapshot
+
+        snapshots = [
+            _codex_snapshot("codex-main@example.com"),
+            cursor_with_api(100.0),
+        ]
+        decreased = [
+            _codex_snapshot("codex-main@example.com"),
+            cursor_with_api(99.0),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = Path(directory) / "usage.log"
+            with mock.patch.dict("os.environ", {"ZCOUNTER_USAGE_LOG": str(log_path)}, clear=False):
+                with mock.patch("zcounter.ui.webview_api.fetch_all_quotas", side_effect=[snapshots, decreased]):
+                    with mock.patch(
+                        "zcounter.ui.webview_api.utc_now",
+                        return_value=datetime(2026, 8, 20, 14, 5, 12, tzinfo=timezone.utc),
+                    ):
+                        with mock.patch("zcounter.notify.cursor_api.send_discord_message", return_value=True) as send:
+                            api = WebviewAPI()
+                            api.refresh()
+                            payload = api.refresh()
+
+                            self.assertFalse(payload["busy"])
+                            self.assertEqual(len(log_path.read_text(encoding="utf-8").splitlines()), 2)
+                            send.assert_called_once()
+
+    def test_refresh_continues_when_discord_notify_fails(self) -> None:
+        with mock.patch("zcounter.ui.webview_api.fetch_all_quotas", return_value=[_codex_snapshot("codex-main@example.com")]):
+            with mock.patch(
+                "zcounter.notify.cursor_api.maybe_notify_cursor_api_decrease",
+                side_effect=RuntimeError("notify failed"),
+            ):
+                with mock.patch("zcounter.ui.webview_api.logger.warning"):
+                    payload = WebviewAPI().refresh()
+
+        self.assertFalse(payload["busy"])
 
 
 if __name__ == "__main__":

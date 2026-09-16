@@ -5,6 +5,7 @@ import threading
 from typing import Any
 
 from zcounter.models import utc_now
+from zcounter.notify.cursor_api import maybe_notify_cursor_api_decrease
 from zcounter.providers.aggregate import fetch_all_quotas
 from zcounter.ui.usage_log import append_usage_log
 from zcounter.ui.viewmodel import SnapshotStore, build_payload
@@ -17,6 +18,7 @@ class WebviewAPI:
     def __init__(self) -> None:
         self._store = SnapshotStore()
         self._lock = threading.Lock()
+        self._previous_cursor_api_remaining: float | None = None
 
     def refresh(self, user_initiated: bool = False) -> dict[str, Any]:
         if not self._lock.acquire(blocking=False):
@@ -32,6 +34,14 @@ class WebviewAPI:
             updated_at = utc_now()
             payload = build_payload(rows, updated_at)
             if snapshots_for_log is not None:
+                try:
+                    self._previous_cursor_api_remaining = maybe_notify_cursor_api_decrease(
+                        self._previous_cursor_api_remaining,
+                        snapshots_for_log,
+                        updated_at,
+                    )
+                except Exception:
+                    logger.warning("failed to check cursor API usage notification", exc_info=True)
                 try:
                     append_usage_log(snapshots_for_log, updated_at)
                 except Exception:

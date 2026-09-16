@@ -14,7 +14,7 @@ if not defined ZC_DIR (
   exit /b 1
 )
 
-wsl -d %WSL_DISTRO% -e bash -lc "cd '%ZC_DIR%' && .venv/bin/python -m zcounter.ui"
+wsl -d %WSL_DISTRO% -e bash -lc "cd '%ZC_DIR%' && bash zcounter-ui.sh"
 if errorlevel 1 (
   echo.
   echo zCounter UI exited with an error.
