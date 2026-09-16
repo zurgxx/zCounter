@@ -22,7 +22,7 @@ def extract_discord_env_block(script_path: Path) -> str:
 
 def create_temp_home_with_discord_env(value: str) -> Path:
     home = Path(tempfile.mkdtemp(prefix="zcounter-discord-env-"))
-    config_dir = home / ".config" / "mlb-radar"
+    config_dir = home / ".config" / "discord"
     config_dir.mkdir(parents=True)
     (config_dir / "discord.env").write_text(
         f"DISCORD_WEBHOOK_URL='{value}'\n",
@@ -49,7 +49,7 @@ class ZCounterUiLauncherTests(unittest.TestCase):
     def test_launcher_exports_discord_webhook_after_sourcing_discord_env(self) -> None:
         block = extract_discord_env_block(LAUNCHER)
         self.assertIn("export DISCORD_WEBHOOK_URL", block)
-        self.assertIn("mlb-radar/discord.env", block)
+        self.assertIn("discord/discord.env", block)
 
     def test_bat_launcher_uses_shell_script(self) -> None:
         content = BAT_LAUNCHER.read_text(encoding="utf-8")
