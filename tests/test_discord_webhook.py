@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import unittest
 from unittest import mock
 
-from zcounter.notify.discord_webhook import resolve_webhook_url, send_discord_message
+from zcounter.notify.discord_webhook import USER_AGENT, resolve_webhook_url, send_discord_message
 
 FAKE_WEBHOOK_URL = "https://discord.com/api/webhooks/1234567890123456789/fake-token-for-tests"
 
@@ -34,6 +35,7 @@ class DiscordWebhookTests(unittest.TestCase):
         self.assertTrue(sent)
         request = urlopen.call_args.args[0]
         self.assertEqual(request.full_url, FAKE_WEBHOOK_URL)
+        self.assertEqual(request.headers.get("User-agent"), USER_AGENT)
         body = json.loads(request.data.decode("utf-8"))
         self.assertEqual(body["content"], "hello")
         self.assertEqual(body["allowed_mentions"], {"parse": []})
@@ -49,13 +51,17 @@ class DiscordWebhookTests(unittest.TestCase):
                     500,
                     "server error",
                     None,
-                    None,
+                    io.BytesIO(b'{"message": "internal"}'),
                 ),
             ):
                 sent = send_discord_message("hello", webhook_url=FAKE_WEBHOOK_URL)
 
         self.assertFalse(sent)
-        warning.assert_called_once_with("discord notify failed: HTTP %s", 500)
+        warning.assert_called_once_with(
+            "discord notify failed: HTTP %s: %s",
+            500,
+            '{"message": "internal"}',
+        )
 
     def test_send_discord_message_logs_timeout_without_raising(self) -> None:
         with mock.patch("zcounter.notify.discord_webhook.logger.warning") as warning:
