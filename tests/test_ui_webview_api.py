@@ -34,7 +34,7 @@ class WebviewAPITests(unittest.TestCase):
             self.assertFalse(second["busy"])
             self.assertEqual(len(log_path.read_text(encoding="utf-8").splitlines()), 2)
 
-    def test_failed_account_does_not_append_or_use_previous_value(self) -> None:
+    def test_failed_account_is_logged_as_stale_without_previous_quota(self) -> None:
         successful = [
             _codex_snapshot("codex-main@example.com", five_hour=72.0),
             _codex_snapshot("codex-sub@example.com", five_hour=88.0),
@@ -57,9 +57,11 @@ class WebviewAPITests(unittest.TestCase):
                         api.refresh()
                         payload = api.refresh()
 
-            self.assertEqual(len(log_path.read_text(encoding="utf-8").splitlines()), 1)
-            self.assertIn("codex-sub:five_hour=88%", log_path.read_text(encoding="utf-8"))
-            self.assertNotIn("codex-main:five_hour=10%", log_path.read_text(encoding="utf-8"))
+            log_lines = log_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(log_lines), 2)
+            self.assertIn("codex-main:five_hour=10%", log_lines[1])
+            self.assertIn("cursor:total=54%,first_party_models=37%", log_lines[1])
+            self.assertNotIn("codex-sub", log_lines[1])
             self.assertEqual(payload["accounts"][1]["status"], "stale")
 
     def test_log_save_failure_does_not_fail_refresh(self) -> None:

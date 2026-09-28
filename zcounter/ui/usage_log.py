@@ -57,11 +57,9 @@ def format_usage_log_line(
     target_snapshots = [
         snapshot
         for snapshot in snapshots
-        if snapshot.provider not in _HIDDEN_UI_PROVIDERS
+        if snapshot.provider not in _HIDDEN_UI_PROVIDERS and snapshot.error is None
     ]
     if not target_snapshots:
-        return None
-    if any(snapshot.error is not None for snapshot in target_snapshots):
         return None
 
     account_parts: list[str] = []
@@ -69,7 +67,7 @@ def format_usage_log_line(
     for snapshot in target_snapshots:
         quotas = _quota_entries(snapshot)
         if not quotas:
-            return None
+            continue
 
         base_label = _account_label(snapshot)
         account_counts[base_label] = account_counts.get(base_label, 0) + 1
@@ -78,6 +76,9 @@ def format_usage_log_line(
             label = f"{base_label}-{account_counts[base_label]}"
         quota_text = ",".join(f"{name}={remaining:.0f}%" for name, remaining in quotas)
         account_parts.append(f"{label}:{quota_text}")
+
+    if not account_parts:
+        return None
 
     timestamp = recorded_at.astimezone().strftime("%Y-%m-%d %H:%M:%S")
     return f"{timestamp} {' '.join(account_parts)}\n"

@@ -49,6 +49,7 @@ def _cursor_snapshot(
     email: str = "cursor@example.com",
     *,
     grok_remaining: float | None = None,
+    error: str | None = None,
 ) -> QuotaSnapshot:
     total = RateWindow(46.0, 54.0, None, None)
     first_party = RateWindow(63.0, 37.0, None, None)
@@ -73,6 +74,7 @@ def _cursor_snapshot(
         updated_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
         provider_account_id="cursor-id",
         details=details,
+        error=error,
     )
 
 
@@ -128,13 +130,102 @@ class UsageLogTests(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertNotIn("grok_bot_weekly", line)
 
-    def test_error_snapshot_does_not_produce_partial_or_stale_log_line(self) -> None:
+    def test_error_account_is_excluded_while_normal_account_is_logged(self) -> None:
         line = format_usage_log_line(
-            [_codex_snapshot("codex-main@example.com"), _codex_snapshot("codex-sub@example.com", error="failed")],
+            [
+                _codex_snapshot("codex-main@example.com"),
+                _codex_snapshot("codex-sub@example.com", error="failed"),
+            ],
+            datetime.now(timezone.utc),
+        )
+
+        self.assertIsNotNone(line)
+        self.assertIn("codex-main:five_hour=72%,weekly=41%", line)
+        self.assertNotIn("codex-sub", line)
+
+    def test_codex_is_logged_when_cursor_has_an_error(self) -> None:
+        line = format_usage_log_line(
+            [
+                _codex_snapshot("codex-main@example.com"),
+                _cursor_snapshot(error="authentication failed"),
+            ],
+            datetime.now(timezone.utc),
+        )
+
+        self.assertIsNotNone(line)
+        self.assertIn("codex-main:five_hour=72%,weekly=41%", line)
+        self.assertNotIn("cursor", line)
+
+    def test_cursor_is_logged_when_codex_has_an_error(self) -> None:
+        line = format_usage_log_line(
+            [
+                _cursor_snapshot(),
+                _codex_snapshot("codex-main@example.com", error="failed"),
+            ],
+            datetime.now(timezone.utc),
+        )
+
+        self.assertIsNotNone(line)
+        self.assertIn("cursor:total=54%,first_party_models=37%", line)
+        self.assertNotIn("codex-main", line)
+
+    def test_all_error_snapshots_produce_no_line_or_append(self) -> None:
+        snapshots = [
+            _codex_snapshot("codex-main@example.com", error="failed"),
+            _cursor_snapshot(error="authentication failed"),
+        ]
+
+        self.assertIsNone(format_usage_log_line(snapshots, datetime.now(timezone.utc)))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "usage.log"
+            self.assertFalse(
+                append_usage_log(snapshots, datetime.now(timezone.utc), path)
+            )
+            self.assertFalse(path.exists())
+
+    def test_quota_unavailable_snapshot_is_skipped_if_another_is_valid(self) -> None:
+        line = format_usage_log_line(
+            [
+                _codex_snapshot("codex-empty@example.com", five_hour=None, weekly=None),
+                _cursor_snapshot(),
+            ],
+            datetime.now(timezone.utc),
+        )
+
+        self.assertIsNotNone(line)
+        self.assertIn("cursor:total=54%,first_party_models=37%", line)
+        self.assertNotIn("codex-empty", line)
+
+    def test_snapshot_without_any_quota_produces_no_line(self) -> None:
+        line = format_usage_log_line(
+            [_codex_snapshot("codex-empty@example.com", five_hour=None, weekly=None)],
             datetime.now(timezone.utc),
         )
 
         self.assertIsNone(line)
+
+    def test_claude_remains_hidden_from_usage_log(self) -> None:
+        claude = QuotaSnapshot(
+            provider="claude",
+            email="claude@example.com",
+            plan="Pro",
+            chatgpt_account_id=None,
+            five_hour=None,
+            weekly=None,
+            source="claude-usage",
+            updated_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            primary=RateWindow(10.0, 90.0, None, None),
+            primary_label="Session",
+        )
+
+        self.assertIsNone(format_usage_log_line([claude], datetime.now(timezone.utc)))
+        mixed_line = format_usage_log_line(
+            [claude, _codex_snapshot("codex-main@example.com")],
+            datetime.now(timezone.utc),
+        )
+        self.assertIsNotNone(mixed_line)
+        self.assertIn("codex-main:five_hour=72%,weekly=41%", mixed_line)
+        self.assertNotIn("claude", mixed_line)
 
     def test_append_preserves_existing_lines(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
