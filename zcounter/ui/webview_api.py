@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from zcounter.models import utc_now
 from zcounter.notify.cursor_api import maybe_notify_cursor_api_decrease
 from zcounter.providers.aggregate import fetch_all_quotas
+from zcounter.ui.usage_history import append_usage_history
 from zcounter.ui.usage_log import append_usage_log
 from zcounter.ui.viewmodel import SnapshotStore, build_payload
 
@@ -19,6 +21,19 @@ class WebviewAPI:
         self._store = SnapshotStore()
         self._lock = threading.Lock()
         self._previous_cursor_api_remaining: float | None = None
+        self._history_window_opener: Callable[[], bool] | None = None
+
+    def set_history_window_opener(self, opener: Callable[[], bool]) -> None:
+        self._history_window_opener = opener
+
+    def open_usage_history(self) -> bool:
+        if self._history_window_opener is None:
+            return False
+        try:
+            return bool(self._history_window_opener())
+        except Exception:
+            logger.warning("failed to open usage history window", exc_info=True)
+            return False
 
     def refresh(self, user_initiated: bool = False) -> dict[str, Any]:
         if not self._lock.acquire(blocking=False):
@@ -47,6 +62,11 @@ class WebviewAPI:
                 except Exception:
                     # Usage history is best effort and must never affect refresh/UI.
                     logger.warning("failed to append usage log", exc_info=True)
+                try:
+                    # メインUI payloadでClaudeが除外される前のsnapshotを使う。
+                    append_usage_history(snapshots_for_log, updated_at)
+                except Exception:
+                    logger.warning("failed to append structured usage history", exc_info=True)
             payload["busy"] = False
             return payload
         finally:

@@ -127,6 +127,7 @@
   <main id="cards" class="cards"><p class="empty">Loading...</p></main>
   <footer class="footer">
     <p id="footer-meta" class="footer-meta">—</p>
+    <button type="button" id="history">Usage History</button>
     <button type="button" id="refresh">Refresh</button>
   </footer>
   <script>
@@ -136,6 +137,7 @@
     const dot = document.getElementById("dot");
     const footerMeta = document.getElementById("footer-meta");
     const refreshButton = document.getElementById("refresh");
+    const historyButton = document.getElementById("history");
     let lastUpdatedAt = null;
     let countdownTimer = null;
     let resumeRefreshTimer = null;
@@ -288,6 +290,16 @@
       }
     }
     refreshButton.addEventListener("click", () => refresh(true));
+    historyButton.addEventListener("click", async () => {
+      historyButton.disabled = true;
+      try {
+        await window.pywebview.api.open_usage_history();
+      } catch (error) {
+        console.error("failed to open usage history", error);
+      } finally {
+        historyButton.disabled = false;
+      }
+    });
     window.addEventListener("zcounterresume", refreshAfterResume);
     window.addEventListener("pageshow", refreshAfterResume);
     window.addEventListener("online", refreshAfterResume);

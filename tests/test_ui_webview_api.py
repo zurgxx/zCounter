@@ -6,12 +6,42 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from zcounter.models import QuotaSnapshot
+from zcounter.models import QuotaSnapshot, RateWindow
+from zcounter.ui.usage_history import read_usage_history
 from zcounter.ui.webview_api import WebviewAPI
 from tests.test_usage_log import _codex_snapshot, _cursor_snapshot
 
 
 class WebviewAPITests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.history_path = Path(self.temp_dir.name) / "usage-history.jsonl"
+        env_patcher = mock.patch.dict(
+            "os.environ",
+            {
+                "ZCOUNTER_USAGE_LOG": str(Path(self.temp_dir.name) / "usage.log"),
+                "ZCOUNTER_USAGE_HISTORY": str(self.history_path),
+            },
+            clear=False,
+        )
+        env_patcher.start()
+        self.addCleanup(env_patcher.stop)
+
+    def test_open_usage_history_delegates_and_handles_unavailable_window(self) -> None:
+        api = WebviewAPI()
+        self.assertFalse(api.open_usage_history())
+        api.set_history_window_opener(lambda: True)
+        self.assertTrue(api.open_usage_history())
+
+        def fail_to_open() -> bool:
+            raise RuntimeError("closed")
+
+        api.set_history_window_opener(fail_to_open)
+        with mock.patch("zcounter.ui.webview_api.logger.warning") as warning:
+            self.assertFalse(api.open_usage_history())
+        warning.assert_called_once()
+
     def test_refresh_appends_one_line_for_all_successful_visible_accounts(self) -> None:
         snapshots = [
             _codex_snapshot("codex-main@example.com"),
@@ -77,11 +107,51 @@ class WebviewAPITests(unittest.TestCase):
         with mock.patch("zcounter.ui.webview_api.fetch_all_quotas", return_value=[_codex_snapshot("codex-main@example.com")]):
             with mock.patch.object(api._store, "merge", side_effect=RuntimeError("merge failed")) as merge:
                 with mock.patch("zcounter.ui.webview_api.append_usage_log") as append:
-                    payload = api.refresh()
+                    with mock.patch("zcounter.ui.webview_api.append_usage_history") as append_history:
+                        payload = api.refresh()
 
         self.assertFalse(payload["busy"])
         self.assertTrue(merge.called)
         append.assert_not_called()
+        append_history.assert_not_called()
+
+    def test_claude_stays_hidden_from_main_payload_but_is_written_to_history(self) -> None:
+        claude = QuotaSnapshot(
+            provider="claude",
+            email="claude@example.com",
+            plan="Pro",
+            chatgpt_account_id=None,
+            five_hour=None,
+            weekly=None,
+            primary=RateWindow(20.0, 80.0, None, 300, 18_000),
+            primary_label="Session",
+            provider_account_id="claude-account-uuid",
+            source="claude-usage",
+            updated_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        )
+        with mock.patch(
+            "zcounter.ui.webview_api.fetch_all_quotas",
+            return_value=[claude, _codex_snapshot("codex-main@example.com")],
+        ):
+            payload = WebviewAPI().refresh()
+
+        self.assertFalse(payload["busy"])
+        self.assertNotIn("Claude", {account["provider"] for account in payload["accounts"]})
+        observations = read_usage_history(self.history_path, Path(self.temp_dir.name) / "missing.log")
+        claude_rows = [item for item in observations if item.provider == "claude"]
+        self.assertEqual(len(claude_rows), 1)
+        self.assertEqual(claude_rows[0].account_id, "claude-account-uuid")
+
+    def test_history_append_failure_does_not_fail_main_refresh(self) -> None:
+        with mock.patch(
+            "zcounter.ui.webview_api.fetch_all_quotas",
+            return_value=[_codex_snapshot("codex-main@example.com")],
+        ):
+            with mock.patch("zcounter.ui.webview_api.append_usage_history", side_effect=OSError("read-only")):
+                with mock.patch("zcounter.ui.webview_api.logger.warning"):
+                    payload = WebviewAPI().refresh()
+
+        self.assertFalse(payload["busy"])
 
     def test_refresh_notifies_on_cursor_api_decrease_without_breaking_log(self) -> None:
         from zcounter.models import RateWindow
