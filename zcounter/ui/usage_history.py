@@ -43,6 +43,7 @@ HISTORY_PROVIDERS: tuple[tuple[str, str], ...] = (
     ("cursor", "Cursor"),
 )
 HISTORY_PERIODS: dict[str, timedelta | None] = {
+    "5h": timedelta(hours=5),
     "24h": timedelta(hours=24),
     "7d": timedelta(days=7),
     "30d": timedelta(days=30),
@@ -200,14 +201,14 @@ def build_history_payload(
     observations: Sequence[HistoryObservation],
     provider: str = "codex",
     account_id: str | None = None,
-    period: str = "24h",
+    period: str = "5h",
     now: datetime | None = None,
 ) -> dict[str, Any]:
     current = _as_utc(now or utc_now())
     valid_providers = {key for key, _ in HISTORY_PROVIDERS}
     selected_provider = provider if isinstance(provider, str) and provider in valid_providers else "codex"
     requested_period = period.lower() if isinstance(period, str) else ""
-    selected_period = requested_period if requested_period in HISTORY_PERIODS else "24h"
+    selected_period = requested_period if requested_period in HISTORY_PERIODS else "5h"
     provider_observations = [item for item in observations if item.provider == selected_provider]
 
     names: dict[str, str] = {}
@@ -329,7 +330,7 @@ class UsageHistoryAPI:
         self,
         provider: str = "codex",
         account_id: str | None = None,
-        period: str = "24h",
+        period: str = "5h",
     ) -> dict[str, Any]:
         observations = read_usage_history(self._history_path, self._legacy_path)
         return build_history_payload(

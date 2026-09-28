@@ -357,11 +357,11 @@ class UsageHistoryPayloadTests(unittest.TestCase):
         )
 
         counts = {}
-        for period in ("24h", "7d", "30d", "all"):
+        for period in ("5h", "24h", "7d", "30d", "all"):
             payload = build_history_payload(observations, "codex", "account-1", period, self.now)
             five_hour = next(chart for chart in payload["charts"] if chart["quota_id"] == "five_hour")
             counts[period] = sum(len(segment) for segment in five_hour["segments"])
-        self.assertEqual(counts, {"24h": 2, "7d": 3, "30d": 5, "all": 6})
+        self.assertEqual(counts, {"5h": 1, "24h": 2, "7d": 3, "30d": 5, "all": 6})
 
         selected = build_history_payload(observations, "codex", "account-2", "all", self.now)
         self.assertEqual(selected["selected_account_id"], "account-2")
@@ -376,7 +376,7 @@ class UsageHistoryPayloadTests(unittest.TestCase):
         observations = [_observation(self.now)]
         payload = build_history_payload(observations, provider=[], account_id=[], period=None, now=self.now)
         self.assertEqual(payload["provider"], "codex")
-        self.assertEqual(payload["period"], "24h")
+        self.assertEqual(payload["period"], "5h")
         self.assertEqual(payload["selected_account_id"], "account-1")
 
     def test_six_minute_gap_boundary_is_contiguous_but_longer_gap_is_cut(self) -> None:
