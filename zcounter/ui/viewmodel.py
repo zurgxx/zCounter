@@ -36,6 +36,10 @@ LEVEL_CRITICAL = "critical"
 
 CURSOR_PACE_WARNING = 3.0
 CURSOR_PACE_CRITICAL = 1.0
+CODEX_PLUS_RENEWAL_DAYS = {
+    "zurgxx": 27,
+    "rock": 29,
+}
 
 
 class SnapshotStore:
@@ -118,7 +122,7 @@ def _account_payload(
         "provider": snapshot.provider.title(),
         "account": _account_name(snapshot.email),
         "email": snapshot.email,
-        "plan": _plan_label(snapshot.plan),
+        "plan": _account_plan_label(snapshot),
         "level": level,
         "status": status,
         "status_label": _status_label(status, level),
@@ -196,7 +200,7 @@ def _cursor_account_payload(
         "provider": snapshot.provider.title(),
         "account": _account_name(snapshot.email),
         "email": snapshot.email,
-        "plan": _plan_label(snapshot.plan),
+        "plan": _account_plan_label(snapshot),
         "level": level,
         "status": status,
         "status_label": _status_label(status, level),
@@ -296,3 +300,18 @@ def _plan_label(plan: str | None) -> str:
     if not plan:
         return "-"
     return plan[:1].upper() + plan[1:]
+
+
+def _account_plan_label(snapshot: QuotaSnapshot) -> str:
+    label = _plan_label(snapshot.plan)
+    if (
+        snapshot.provider != "codex"
+        or not snapshot.plan
+        or snapshot.plan.strip().casefold() != "plus"
+    ):
+        return label
+
+    renewal_day = CODEX_PLUS_RENEWAL_DAYS.get(_account_name(snapshot.email).casefold())
+    if renewal_day is None:
+        return label
+    return f"{label}({renewal_day}日更新)"
