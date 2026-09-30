@@ -101,6 +101,7 @@
         <select id="account-select"></select>
       </label>
       <div id="period-controls" class="control-group" role="group" aria-label="Period">
+        <button class="choice" type="button" data-period="1h">1H</button>
         <button class="choice active" type="button" data-period="5h">5H</button>
         <button class="choice" type="button" data-period="24h">24H</button>
         <button class="choice" type="button" data-period="7d">7D</button>
@@ -115,7 +116,7 @@
 
   <script>
     const PROVIDER_LABELS = { codex: "Codex", claude: "Claude", cursor: "Cursor" };
-    const PERIOD_LABELS = { "5h": "5H", "24h": "24H", "7d": "7D", "30d": "30D", all: "ALL" };
+    const PERIOD_LABELS = { "1h": "1H", "5h": "5H", "24h": "24H", "7d": "7D", "30d": "30D", all: "ALL" };
     const SVG_NS = "http://www.w3.org/2000/svg";
     const SVG = { width: 1000, height: 280, left: 62, right: 980, top: 18, bottom: 238 };
     const statusNode = document.getElementById("status");

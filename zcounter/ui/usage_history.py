@@ -43,6 +43,7 @@ HISTORY_PROVIDERS: tuple[tuple[str, str], ...] = (
     ("cursor", "Cursor"),
 )
 HISTORY_PERIODS: dict[str, timedelta | None] = {
+    "1h": timedelta(hours=1),
     "5h": timedelta(hours=5),
     "24h": timedelta(hours=24),
     "7d": timedelta(days=7),

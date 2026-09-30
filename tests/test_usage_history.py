@@ -357,11 +357,11 @@ class UsageHistoryPayloadTests(unittest.TestCase):
         )
 
         counts = {}
-        for period in ("5h", "24h", "7d", "30d", "all"):
+        for period in ("1h", "5h", "24h", "7d", "30d", "all"):
             payload = build_history_payload(observations, "codex", "account-1", period, self.now)
             five_hour = next(chart for chart in payload["charts"] if chart["quota_id"] == "five_hour")
             counts[period] = sum(len(segment) for segment in five_hour["segments"])
-        self.assertEqual(counts, {"5h": 1, "24h": 2, "7d": 3, "30d": 5, "all": 6})
+        self.assertEqual(counts, {"1h": 1, "5h": 1, "24h": 2, "7d": 3, "30d": 5, "all": 6})
 
         selected = build_history_payload(observations, "codex", "account-2", "all", self.now)
         self.assertEqual(selected["selected_account_id"], "account-2")
@@ -371,6 +371,23 @@ class UsageHistoryPayloadTests(unittest.TestCase):
         self.assertEqual(len(duplicate_name_labels), 2)
         cursor = build_history_payload(observations, "cursor", None, "24h", self.now)
         self.assertEqual([item["quota_id"] for item in cursor["charts"]], ["total"])
+
+    def test_one_hour_period_includes_boundaries_and_excludes_older_and_future_points(self) -> None:
+        observations = [
+            _observation(self.now + timedelta(seconds=offset), remaining=float(index))
+            for index, offset in enumerate((-7200, -3601, -3600, -1800, 0, 1))
+        ]
+        payload = build_history_payload(observations, period="1H", now=self.now)
+
+        self.assertEqual(payload["period"], "1h")
+        self.assertEqual(payload["range_start"], "2026-09-28T11:00:00Z")
+        self.assertEqual(payload["range_end"], "2026-09-28T12:00:00Z")
+        points = [point for segment in payload["charts"][0]["segments"] for point in segment]
+        self.assertEqual([point["remaining_percent"] for point in points], [2.0, 3.0, 4.0])
+
+        default_payload = build_history_payload(observations, now=self.now)
+        self.assertEqual(default_payload["period"], "5h")
+        self.assertEqual(default_payload["range_start"], "2026-09-28T07:00:00Z")
 
     def test_period_aliases_and_invalid_filters_are_safe(self) -> None:
         observations = [_observation(self.now)]
