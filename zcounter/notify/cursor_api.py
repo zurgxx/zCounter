@@ -12,7 +12,7 @@ from zcounter.notify.discord_webhook import send_discord_message
 logger = logging.getLogger(__name__)
 
 JST = ZoneInfo("Asia/Tokyo")
-DECREASE_NOTIFY_THRESHOLD = 1.0
+DECREASE_NOTIFY_THRESHOLD = 0.5
 
 
 def cursor_api_remaining_percent(snapshot: QuotaSnapshot) -> float | None:

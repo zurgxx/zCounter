@@ -48,6 +48,12 @@ class CursorApiNotifyTests(unittest.TestCase):
     def test_should_notify_for_two_percent_decrease(self) -> None:
         self.assertTrue(should_notify_api_decrease(99.0, 97.0))
 
+    def test_should_notify_for_sub_one_percent_cursor_step(self) -> None:
+        self.assertTrue(should_notify_api_decrease(100.0, 99.02222222222223))
+
+    def test_should_not_notify_below_half_percent_decrease(self) -> None:
+        self.assertFalse(should_notify_api_decrease(100.0, 99.6))
+
     def test_should_not_notify_when_unchanged(self) -> None:
         self.assertFalse(should_notify_api_decrease(99.0, 99.0))
 
